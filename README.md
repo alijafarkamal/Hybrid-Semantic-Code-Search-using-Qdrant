@@ -1,7 +1,5 @@
 # 🔍 Semantic Code Search using Qdrant
 
-**Repository:** [https://github.com/alijafarkamal/Semantic-Code-Search-using-Qdrant](https://github.com/alijafarkamal/Semantic-Code-Search-using-Qdrant)
-
 ## Problem Statement
 
 Searching through large codebases using traditional keyword-based search is inefficient. Developers often struggle to find relevant code snippets when they only know what they want to accomplish, not the exact function names or keywords. This project solves this by enabling **semantic code search** - finding code by meaning, not just keywords.
@@ -74,4 +72,4 @@ python ui_gradio.py
 
 ## License
 
-Open source - available for hackathon use.
+Open source - available for use.

@@ -2,6 +2,47 @@
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Environment variables
+.env
+.env.local
+
+# IDEs and editors
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build / packaging
+dist/
+build/
+*.egg-info/
+
+# Byte-compiled / memory mapped files
+*.mmap
+
+# Qdrant local storage (large binary segments) - do not push
+qdrant_storage/
+
+# Temporary files
+*.log
+*.tmp
+
+# Ignore Python cache directories anywhere
+**/__pycache__/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
 *.so
 .Python
 env/
