@@ -1,12 +1,15 @@
-"""
-Code Ingestion Module
-Reads code files, chunks them, generates embeddings, and stores in Qdrant.
+"""Code Ingestion Module.
+
+Reads code files, chunks them, generates embeddings, and stores them in Qdrant.
+This module is intentionally kept lightweight: model inference happens locally,
+but all heavy semantic reasoning is delegated to external services.
 """
 
+import ast
 import os
 import re
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 from fastembed import TextEmbedding
@@ -22,72 +25,197 @@ class CodeChunker:
     def chunk_file(self, file_path: str, content: str, language: str) -> List[Dict]:
         """
         Split code file into chunks.
-        Returns list of dicts with 'text', 'start_line', 'end_line', 'type'.
+        Returns list of dicts with at minimum:
+
+        - text:        source code snippet
+        - start_line:  1-based start line in the original file
+        - end_line:    1-based end line in the original file
+        - type:        symbol type (function/class) or "block" for fallback
+
+        For Python, we prefer AST-aware symbols (functions/classes) so that
+        one Qdrant point ≈ one semantic symbol. We only fall back to
+        block-level chunks when AST parsing fails.
         """
-        chunks = []
-        
-        # Try to extract functions and classes first
-        if language in ['python', 'py']:
-            chunks.extend(self._extract_python_structures(content))
+        chunks: List[Dict[str, Any]] = []
+
+        # For Python, use an AST-based view so chunks line up with real symbols.
+        if language in ["python", "py"]:
+            chunks = self._extract_python_structures(file_path, content)
+
+            # If AST parsing failed or produced nothing (e.g. syntax error),
+            # fall back to coarse block-level chunks so ingestion still works.
+            if not chunks:
+                chunks = self._chunk_by_lines(content)
+
+        # Non-Python languages keep the existing heuristic extractors and
+        # gap-filling behaviour as a best-effort structure detection.
         elif language in ['javascript', 'js', 'typescript', 'ts']:
             chunks.extend(self._extract_js_structures(content))
         elif language in ['java', 'cpp', 'c', 'csharp', 'cs']:
             chunks.extend(self._extract_brace_structures(content))
-        
-        # If no structures found or chunks are too small, split by lines
-        if not chunks:
-            chunks = self._chunk_by_lines(content)
-        else:
-            # Fill gaps with line-based chunks
-            chunks = self._fill_gaps(content, chunks)
+
+        # For non-Python files, preserve the old behaviour: if we manage to
+        # detect any structural chunks, also fill the gaps with block chunks;
+        # otherwise, fall back to fixed-size blocks.
+        if language not in ["python", "py"]:
+            if not chunks:
+                chunks = self._chunk_by_lines(content)
+            else:
+                chunks = self._fill_gaps(content, chunks)
         
         # Format chunks with metadata
         result = []
         for chunk in chunks:
             if len(chunk['text'].strip()) >= self.min_chunk_size:
+                # Normalise fields so downstream ingestion can rely on a
+                # consistent shape even if individual extractors change.
                 result.append({
                     'text': chunk['text'],
                     'start_line': chunk.get('start_line', 0),
                     'end_line': chunk.get('end_line', 0),
-                    'type': chunk.get('type', 'block')
+                    'type': chunk.get('type', 'block'),
+                    'symbol_name': chunk.get('symbol_name'),
+                    'symbol_type': chunk.get('symbol_type', chunk.get('type', 'block')),
+                    'signature': chunk.get('signature'),
+                    'docstring': chunk.get('docstring'),
                 })
         
         return result
     
-    def _extract_python_structures(self, content: str) -> List[Dict]:
-        """Extract Python functions and classes."""
-        chunks = []
+    def _extract_python_structures(self, file_path: str, content: str) -> List[Dict[str, Any]]:
+        """Extract Python functions and classes using the AST.
+
+        We intentionally work at the symbol level (functions/classes) instead
+        of raw text regions, so that one Qdrant point maps directly to one
+        semantic unit in the codebase.
+        """
+        try:
+            # Using the native AST keeps this dependency-free and robust
+            # across Python versions. If parsing fails, the caller will
+            # fall back to simple block chunking.
+            tree = ast.parse(content)
+        except SyntaxError:
+            return []
+
         lines = content.split('\n')
-        
-        # Pattern for function/class definitions
-        pattern = r'^(def|class)\s+\w+'
-        current_chunk = None
-        
-        for i, line in enumerate(lines, 1):
-            if re.match(pattern, line.strip()):
-                if current_chunk:
-                    chunks.append(current_chunk)
-                
-                # Find the end of the function/class (next def/class or end of file)
-                current_chunk = {
-                    'text': line,
-                    'start_line': i,
-                    'end_line': i,
-                    'type': 'function' if 'def' in line else 'class'
-                }
-            elif current_chunk:
-                current_chunk['text'] += '\n' + line
-                current_chunk['end_line'] = i
-                
-                # Stop if we hit another top-level definition
-                if re.match(pattern, line.strip()):
-                    chunks.append(current_chunk)
-                    current_chunk = None
-        
-        if current_chunk:
-            chunks.append(current_chunk)
-        
+        chunks: List[Dict[str, Any]] = []
+
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                symbol_type = 'class' if isinstance(node, ast.ClassDef) else 'function'
+                symbol_name = node.name
+
+                # Prefer end_lineno when available (Python 3.8+) because it is
+                # accurate for nested blocks; otherwise compute a conservative
+                # bound by walking child nodes.
+                start_line = node.lineno
+
+                # Include decorators in the snippet by shifting the start line
+                # up to the first decorator, if present.
+                decorator_lines = [
+                    d.lineno for d in getattr(node, 'decorator_list', [])
+                    if hasattr(d, 'lineno')
+                ]
+                if decorator_lines:
+                    start_line = min(start_line, min(decorator_lines))
+
+                end_line = getattr(node, 'end_lineno', None)
+                if end_line is None:
+                    end_line = self._find_end_lineno(node)
+
+                # Defensive bounds checking to avoid IndexError if the file
+                # changed between reading and parsing.
+                start_idx = max(start_line - 1, 0)
+                end_idx = min(end_line, len(lines))
+                code_snippet = '\n'.join(lines[start_idx:end_idx])
+
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    signature = self._format_function_signature(node)
+                else:
+                    signature = self._format_class_signature(node)
+
+                docstring = ast.get_docstring(node)
+
+                chunks.append({
+                    'text': code_snippet,
+                    'start_line': start_line,
+                    'end_line': end_line,
+                    'type': symbol_type,
+                    'symbol_name': symbol_name,
+                    'symbol_type': symbol_type,
+                    'signature': signature,
+                    'docstring': docstring,
+                })
+
         return chunks
+
+    def _find_end_lineno(self, node: ast.AST) -> int:
+        """Best-effort fallback when ``end_lineno`` is missing.
+
+        We walk all children and take the maximum line number we see. This is
+        slightly conservative but guarantees that the snippet fully contains
+        the symbol's body, which is more important than being a few lines long.
+        """
+        max_lineno = getattr(node, 'lineno', 0)
+        for child in ast.walk(node):
+            if hasattr(child, 'end_lineno') and child.end_lineno is not None:
+                max_lineno = max(max_lineno, child.end_lineno)
+            elif hasattr(child, 'lineno'):
+                max_lineno = max(max_lineno, child.lineno)
+        return max_lineno
+
+    def _format_function_signature(self, node: ast.FunctionDef) -> str:
+        """Render a lightweight textual function signature.
+
+        We intentionally do not try to reconstruct default values exactly;
+        instead we mark their presence. This keeps signatures stable even when
+        complex expressions are used as defaults.
+        """
+        parts: List[str] = []
+        args = node.args
+
+        total_pos = len(args.args)
+        defaults = list(args.defaults)
+        num_defaults = len(defaults)
+
+        for idx, arg in enumerate(args.args):
+            name = arg.arg
+            # Map the last ``num_defaults`` positional args to defaults.
+            default_index = idx - (total_pos - num_defaults)
+            if default_index >= 0:
+                parts.append(f"{name}=...")
+            else:
+                parts.append(name)
+
+        if args.vararg:
+            parts.append("*" + args.vararg.arg)
+
+        for kwonly, default in zip(args.kwonlyargs, args.kw_defaults):
+            if default is not None:
+                parts.append(f"{kwonly.arg}=...")
+            else:
+                parts.append(kwonly.arg)
+
+        if args.kwarg:
+            parts.append("**" + args.kwarg.arg)
+
+        arg_list = ", ".join(parts)
+        return f"{node.name}({arg_list})"
+
+    def _format_class_signature(self, node: ast.ClassDef) -> str:
+        """Render a simple class signature with base names only."""
+        base_names: List[str] = []
+        for base in node.bases:
+            if isinstance(base, ast.Name):
+                base_names.append(base.id)
+            elif isinstance(base, ast.Attribute):
+                # For attributes, keep only the tail (e.g. ``module.Base`` → ``Base``)
+                base_names.append(base.attr)
+            else:
+                base_names.append("...")
+
+        bases = f"({', '.join(base_names)})" if base_names else ""
+        return f"{node.name}{bases}"
     
     def _extract_js_structures(self, content: str) -> List[Dict]:
         """Extract JavaScript/TypeScript functions and classes."""
@@ -283,10 +411,10 @@ class CodeIngester:
                     distance=Distance.COSINE
                 ),
             )
-            print(f"✅ Created collection '{self.collection_name}' (vector size: {vector_size})")
+            print(f"Created collection '{self.collection_name}' (vector size: {vector_size})")
         except Exception as e:
             if "already exists" in str(e).lower():
-                print(f"ℹ️  Collection '{self.collection_name}' already exists")
+                print(f"Collection '{self.collection_name}' already exists")
             else:
                 raise
     
@@ -325,7 +453,7 @@ class CodeIngester:
             if not any(excluded in f.parts for excluded in exclude_dirs)
         ]
         
-        print(f"📁 Found {len(code_files)} code files in {directory}")
+        print(f"Found {len(code_files)} code files in {directory}")
         
         # Process files
         all_points = []
@@ -343,19 +471,34 @@ class CodeIngester:
                     # Generate embedding (fastembed returns iterator)
                     embedding = list(self.model.embed(chunk['text']))[0].tolist()
                     
-                    # Create point
+                    # Create payload so that one Qdrant point represents one
+                    # semantic symbol when possible (especially for Python).
+                    payload: Dict[str, Any] = {
+                        'file_path': str(file_path.relative_to(directory)),
+                        'code_snippet': chunk['text'],
+                        'repo_name': repo_name,
+                        'language': language,
+                        'start_line': chunk['start_line'],
+                        'end_line': chunk['end_line'],
+                    }
+
+                    # Symbol-level metadata is best-effort: non-Python files
+                    # will typically have "block" symbols.
+                    if chunk.get('symbol_name'):
+                        payload['symbol_name'] = chunk['symbol_name']
+
+                    symbol_type = chunk.get('symbol_type', chunk.get('type', 'block'))
+                    payload['symbol_type'] = symbol_type
+
+                    if chunk.get('signature'):
+                        payload['signature'] = chunk['signature']
+                    if chunk.get('docstring'):
+                        payload['docstring'] = chunk['docstring']
+
                     point = PointStruct(
                         id=len(all_points),
                         vector=embedding,
-                        payload={
-                            'file_path': str(file_path.relative_to(directory)),
-                            'code_snippet': chunk['text'],
-                            'repo_name': repo_name,
-                            'language': language,
-                            'start_line': chunk['start_line'],
-                            'end_line': chunk['end_line'],
-                            'chunk_type': chunk['type']
-                        }
+                        payload=payload,
                     )
                     all_points.append(point)
                     total_chunks += 1
@@ -366,11 +509,11 @@ class CodeIngester:
                         points=all_points,
                         wait=True
                     )
-                    print(f"  ✅ Upserted {len(all_points)} chunks (total: {total_chunks})")
+                    print(f"  Upserted {len(all_points)} chunks (total: {total_chunks})")
                     all_points = []
             
             except Exception as e:
-                print(f"  ⚠️  Error processing {file_path}: {e}")
+                print(f"  Error processing {file_path}: {e}")
                 continue
         
         # Upsert remaining points
@@ -380,20 +523,20 @@ class CodeIngester:
                 points=all_points,
                 wait=True
             )
-            print(f"  ✅ Upserted {len(all_points)} chunks (total: {total_chunks})")
+            print(f"  Upserted {len(all_points)} chunks (total: {total_chunks})")
         
-        print(f"\n✨ Ingestion complete! Total chunks: {total_chunks}")
+        print(f"\nIngestion complete! Total chunks: {total_chunks}")
     
     def get_collection_info(self):
         """Get information about the collection."""
         try:
             info = self.client.get_collection(self.collection_name)
-            print(f"\n📊 Collection '{self.collection_name}':")
+            print(f"\nCollection '{self.collection_name}':")
             print(f"   Points: {info.points_count}")
             print(f"   Vector size: {info.config.params.vectors.size}")
             print(f"   Distance: {info.config.params.vectors.distance}")
         except Exception as e:
-            print(f"❌ Error getting collection info: {e}")
+            print(f"Error getting collection info: {e}")
 
 
 def main():
