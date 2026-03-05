@@ -85,6 +85,70 @@ body {
   font-size: 12px;
 }
 
+/* ─── Custom Dropdown Styles ─── */
+.premium-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: rgba(10, 14, 23, 0.95);
+  border: 1px solid rgba(51, 65, 85, 0.45);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(12px);
+  position: relative;
+}
+
+.premium-select-trigger:hover {
+  background: rgba(15, 23, 42, 0.98);
+  border-color: rgba(100, 116, 139, 0.55);
+  color: #f8fafc;
+}
+
+.premium-select-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #111827;
+  border: 1px solid rgba(71, 85, 105, 0.5);
+  border-radius: 10px;
+  padding: 5px;
+  z-index: 1000;
+  /* Extremely high to ensure visibility */
+  box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(20px);
+}
+
+.premium-select-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.premium-select-item:hover {
+  background: rgba(59, 130, 246, 0.15);
+  color: #f8fafc;
+}
+
+.premium-select-item.active {
+  background: rgba(59, 130, 246, 0.25);
+  color: #60a5fa;
+  font-weight: 700;
+}
+
 /* ─── Premium Range Slider ─── */
 .premium-range {
   -webkit-appearance: none;
