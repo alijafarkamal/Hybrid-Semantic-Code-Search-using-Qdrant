@@ -66,8 +66,14 @@ class CodeSearcher:
         chunk_types_filter: Optional[List[str]] = None,
         min_score: float = 0.0,
         sort_by: str = "relevance",  # "relevance", "semantic", "lexical"
+        semantic_weight: Optional[float] = None,
+        overfetch_multiplier: int = 5,
     ) -> List[Dict[str, Any]]:
         """Search for code snippets matching a natural language query."""
+
+        # Use provided weight or fall back to instance default
+        s_weight = semantic_weight if semantic_weight is not None else self.semantic_weight
+        l_weight = 1.0 - s_weight
 
         # Ensure the target collection exists.
         try:
@@ -88,8 +94,10 @@ class CodeSearcher:
         query_filter: Optional[Filter] = None
         must_conditions: List[FieldCondition] = []
         if language_filter:
+            # Ingestion stores languages in lowercase (e.g. 'python'), 
+            # while the frontend might send capitalized versions (e.g. 'Python').
             must_conditions.append(
-                FieldCondition(key="language", match=MatchValue(value=language_filter))
+                FieldCondition(key="language", match=MatchValue(value=language_filter.lower()))
             )
         if repo_filter:
             must_conditions.append(
@@ -106,8 +114,7 @@ class CodeSearcher:
             query_filter = Filter(must=must_conditions)
 
         # Over-fetch candidates so lexical re-ranking has room to reshuffle.
-        # We fetch more if we have a min_score to be safer.
-        initial_limit = max(limit * 5, 50)
+        initial_limit = max(limit * overfetch_multiplier, 50)
         results = self.client.query_points(
             collection_name=self.collection_name,
             query=query_embedding,
@@ -164,26 +171,36 @@ class CodeSearcher:
             lexical_scores.append(score)
 
         semantic_scores = [p.score for p in results.points]
-        max_semantic = max(semantic_scores) or 1.0
-        max_lexical = max(lexical_scores) or 1.0
+        
+        # Normalization: handle edge cases where all scores are the same or zero
+        min_sem, max_sem = min(semantic_scores), max(semantic_scores)
+        range_sem = max_sem - min_sem if max_sem > min_sem else 1.0
+        
+        min_lex, max_lex = min(lexical_scores), max(lexical_scores)
+        range_lex = max_lex - min_lex if max_lex > min_lex else 1.0
 
         fused: List[Dict[str, Any]] = []
         for idx, point in enumerate(results.points):
-            semantic_norm = semantic_scores[idx] / max_semantic
-            lexical_norm = lexical_scores[idx] / max_lexical if max_lexical > 0 else 0.0
+            # Normalize to [0, 1] based on the current candidate set
+            semantic_norm = (semantic_scores[idx] - min_sem) / range_sem if max_sem > min_sem else 1.0
+            lexical_norm = (lexical_scores[idx] - min_lex) / range_lex if max_lex > min_lex else 0.0
+            
+            # If everything is identical (e.g. all 0), default to 1 for semantic if it was the top hit
+            if max_sem == min_sem and idx == 0: semantic_norm = 1.0
             
             # Select primary score based on sort_by
             if sort_by == "semantic":
                 final_score = semantic_norm
             elif sort_by == "lexical":
-                final_score = lexical_norm
+                # Special case: if lexical matches are found, use norm; 
+                # if no lexical matches found at ALL, avoid returning 1.0 incorrectly
+                final_score = lexical_norm if max_lex > 0 else 0.0
             else:  # relevance (hybrid)
-                final_score = (
-                    self.semantic_weight * semantic_norm
-                    + self.lexical_weight * lexical_norm
-                )
+                final_score = (s_weight * semantic_norm) + (l_weight * lexical_norm)
 
             # Apply min_score filter
+            # If min_score is high (e.g. 0.5), we only keep results that are significantly
+            # better than the worst hit in the top-50.
             if final_score < min_score:
                 continue
 

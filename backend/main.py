@@ -73,6 +73,8 @@ class SearchRequest(BaseModel):
     chunk_types: Optional[List[str]] = None
     min_score: float = 0.0
     sort_by: str = "relevance"
+    semantic_weight: float = 0.7
+    overfetch_multiplier: int = 5
     mode: str = "search"  # "search" or "plan"
 
 # Auth Security
@@ -165,7 +167,9 @@ async def search(request: SearchRequest, current_user: Any = Depends(get_current
             repo_filter=request.repo,
             chunk_types_filter=request.chunk_types,
             min_score=request.min_score,
-            sort_by=request.sort_by
+            sort_by=request.sort_by,
+            semantic_weight=request.semantic_weight,
+            overfetch_multiplier=request.overfetch_multiplier
         )
         
         if request.mode == "plan":

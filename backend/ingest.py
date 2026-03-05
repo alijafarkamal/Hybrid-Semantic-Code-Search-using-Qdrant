@@ -386,6 +386,8 @@ class CodeIngester:
             '.php': 'php',
             '.swift': 'swift',
             '.kt': 'kotlin',
+            '.md': 'markdown',
+            '.markdown': 'markdown',
         }
     
     def detect_language(self, file_path: str) -> str:

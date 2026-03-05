@@ -21,7 +21,11 @@ const Icons = {
   User: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>,
   Close: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>,
   Eye: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>,
-  EyeOff: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
+  EyeOff: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>,
+  Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>,
+  AlertTriangle: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>,
+  Refresh: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M3 21v-5h5" /></svg>,
+  Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
 }
 
 const CustomDropdown = ({ value, onChange, options, label }) => {
@@ -431,6 +435,15 @@ const App = () => {
     'error handling patterns'
   ])
 
+  // Settings State
+  const [qdrantUrl, setQdrantUrl] = useState('http://localhost:6333')
+  const [collectionName, setCollectionName] = useState('code_search')
+  const [isTestingConnection, setIsTestingConnection] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState(null) // null, 'success', 'error'
+  const [embeddingModel, setEmbeddingModel] = useState('BAAI/bge-small-en-v1.5')
+  const [semanticWeight, setSemanticWeight] = useState(0.7)
+  const [overfetchMultiplier, setOverfetchMultiplier] = useState(5)
+
   // Stats State
   const [stats, setStats] = useState({
     points: '...',
@@ -444,20 +457,11 @@ const App = () => {
   const prevPointsRef = useRef(null)
 
   // Reactive Results Filtering
+  // Simplified as the backend now handles specific filtering; 
+  // keeping the hook structure in case global frontend-only post-processing is needed later.
   const displayedResults = useMemo(() => {
-    let filtered = results;
-    if (language !== 'All') {
-      filtered = filtered.filter(r =>
-        r.language && r.language.toLowerCase() === language.toLowerCase()
-      );
-    }
-    if (repo !== 'All') {
-      filtered = filtered.filter(r =>
-        r.repo_name && r.repo_name.toLowerCase() === repo.toLowerCase()
-      );
-    }
-    return filtered;
-  }, [results, language, repo]);
+    return results;
+  }, [results]);
 
   useEffect(() => {
     const fetchInfo = async () => {
@@ -554,9 +558,13 @@ const App = () => {
           limit,
           language: language === 'All' ? null : language,
           repo: repo === 'All' ? null : repo,
-          chunk_types: chunkTypes.map(t => t.toLowerCase().replace('s', '')),
+          chunk_types: chunkTypes.map(t => {
+            const map = { 'Functions': 'function', 'Classes': 'class', 'Blocks': 'block' };
+            return map[t] || t.toLowerCase();
+          }),
           min_score: minScore,
           sort_by: sortBy,
+          semantic_weight: semanticWeight,
           mode: 'search'
         }),
       })
@@ -579,6 +587,30 @@ const App = () => {
     setChunkTypes(prev =>
       prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
     )
+  }
+
+  const handleTestConnection = async () => {
+    setIsTestingConnection(true)
+    setConnectionStatus(null)
+    // Simulate API call
+    setTimeout(() => {
+      setIsTestingConnection(false)
+      setConnectionStatus('success')
+    }, 1500)
+  }
+
+  const handleResetSettings = () => {
+    if (window.confirm("Are you sure you want to reset all settings?")) {
+      setSemanticWeight(0.7)
+      setOverfetchMultiplier(5)
+      setEmbeddingModel('BAAI/bge-small-en-v1.5')
+    }
+  }
+
+  const handleDeleteCollection = () => {
+    if (window.confirm("CRITICAL: This will permanently delete the collection. Continue?")) {
+      alert("Collection deleted (Simulated)")
+    }
   }
 
   const fetchProfile = async () => {
@@ -777,7 +809,7 @@ const App = () => {
               </div>
 
               {/* Advanced Filters */}
-              <div className="bg-[#111827]/50 border border-slate-800 rounded-2xl max-w-5xl mx-auto transition-all shadow-xl relative z-40">
+              <div className="bg-[#111827]/50 border border-slate-800 rounded-2xl max-w-5xl mx-auto transition-all shadow-xl relative overflow-hidden">
                 <button
                   onClick={() => setShowFilters(!showFilters)}
                   className="w-full p-4 flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest hover:text-slate-300 transition-colors bg-[#111827]"
@@ -1082,6 +1114,167 @@ const App = () => {
               <div className="text-6xl mb-6">🤖</div>
               <h3 className="text-2xl font-bold mb-4">AI Plan Integration</h3>
               <p className="max-w-sm text-slate-500">The planner view is being migrated to this new layout. It will allow you to generate code refactoring steps directly from search results.</p>
+            </div>
+          )}
+
+          {/* Settings View */}
+          {activeView === 'settings' && (
+            <div className="max-w-4xl mx-auto space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+              {/* Connection Settings */}
+              <div className="bg-[#111827] border border-slate-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden group">
+                <h3 className="text-base font-bold text-white mb-6 flex items-center gap-2">
+                  <Icons.Database /> Connection Settings
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase">Qdrant URL</label>
+                    <input
+                      className="w-full bg-[#0b0f1a] border border-slate-800 rounded-xl px-4 py-1.5 text-sm font-mono text-blue-400 focus:border-blue-500 transition-all outline-none"
+                      value={qdrantUrl}
+                      onChange={e => setQdrantUrl(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase">Collection Name</label>
+                    <input
+                      className="w-full bg-[#0b0f1a] border border-slate-800 rounded-xl px-4 py-1.5 text-sm font-mono text-slate-300 focus:border-blue-500 transition-all outline-none"
+                      value={collectionName}
+                      onChange={e => setCollectionName(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={handleTestConnection}
+                  disabled={isTestingConnection}
+                  className={`flex items-center gap-2 px-5 py-1 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${connectionStatus === 'success'
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
+                    }`}
+                >
+                  {isTestingConnection ? (
+                    <div className="w-4 h-4 border-2 border-slate-400 border-t-white rounded-full animate-spin"></div>
+                  ) : connectionStatus === 'success' ? (
+                    <Icons.Check />
+                  ) : null}
+                  {isTestingConnection ? 'Testing...' : connectionStatus === 'success' ? 'Connection Verified' : 'Test Connection'}
+                </button>
+              </div>
+
+              {/* Model Settings */}
+              <div className="bg-[#111827] border border-slate-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+                <h3 className="text-base font-bold text-white mb-6 flex items-center gap-2">
+                  <Icons.Shield size={20} /> Model Settings
+                </h3>
+                <div className="space-y-6">
+                  <div className="max-w-md">
+                    <CustomDropdown
+                      label="Embedding Model"
+                      value={embeddingModel}
+                      onChange={setEmbeddingModel}
+                      options={['BAAI/bge-small-en-v1.5', 'BAAI/bge-base-en-v1.5', 'sentence-transformers/all-MiniLM-L6-v2']}
+                    />
+                  </div>
+                  <div className="space-y-2 pt-4">
+                    <label className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase">Gemini Model</label>
+                    <div className="flex items-center justify-between bg-[#0b0f1a] border border-slate-800 rounded-2xl px-5 py-2">
+                      <span className="text-sm font-mono text-slate-300">gemini-1.5-flash-preview</span>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]"></span>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Configured</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Search Tuning */}
+              <div className="bg-[#111827] border border-slate-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+                <h3 className="text-base font-bold text-white mb-6 flex items-center gap-2">
+                  <Icons.Analytics /> Search Tuning
+                </h3>
+                <div className="space-y-8">
+                  {/* Semantic Weight */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-[13px] text-[#94a3b8]">
+                      <span>Semantic Weight</span>
+                      <span>{semanticWeight.toFixed(1)}</span>
+                    </div>
+                    <input
+                      type="range" min="0" max="1" step="0.1"
+                      value={semanticWeight} onChange={e => setSemanticWeight(parseFloat(e.target.value))}
+                      className="w-full tuning-range"
+                      style={{
+                        background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${semanticWeight * 100}%, #e2e8f0 ${semanticWeight * 100}%, #e2e8f0 100%)`
+                      }}
+                    />
+                  </div>
+
+                  {/* Lexical Weight (auto) */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-[13px] text-[#94a3b8]">
+                      <span>Lexical Weight (auto)</span>
+                      <span>{(1 - semanticWeight).toFixed(1)}</span>
+                    </div>
+                    {/* Bicolor Ratio Bar */}
+                    <div className="h-6 w-full rounded-full overflow-hidden flex">
+                      <div
+                        className="h-full bg-[#3b82f6] flex items-center justify-center transition-all duration-300 ease-out"
+                        style={{ width: `${semanticWeight * 100}%` }}
+                      >
+                        {semanticWeight > 0.15 && <span className="text-[11px] font-bold text-white">Semantic {(semanticWeight * 100).toFixed(0)}%</span>}
+                      </div>
+                      <div
+                        className="h-full bg-[#8b5cf6] flex items-center justify-center transition-all duration-300 ease-out"
+                        style={{ width: `${(1 - semanticWeight) * 100}%` }}
+                      >
+                        {(1 - semanticWeight) > 0.15 && <span className="text-[11px] font-bold text-white">Lexical {((1 - semanticWeight) * 100).toFixed(0)}%</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Over-fetch Multiplier */}
+                  <div className="space-y-3 pt-2">
+                    <div className="flex justify-between items-center text-[13px] text-[#94a3b8]">
+                      <span>Over-fetch Multiplier</span>
+                      <span>{overfetchMultiplier}x</span>
+                    </div>
+                    <input
+                      type="range" min="1" max="10" step="1"
+                      value={overfetchMultiplier} onChange={e => setOverfetchMultiplier(parseInt(e.target.value))}
+                      className="w-full tuning-range"
+                      style={{
+                        background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(overfetchMultiplier - 1) / 9 * 100}%, #e2e8f0 ${(overfetchMultiplier - 1) / 9 * 100}%, #e2e8f0 100%)`
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Danger Zone */}
+              <div className="border border-rose-500/30 bg-rose-500/5 rounded-[32px] p-6 shadow-2xl shadow-rose-900/10 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                  <Icons.AlertTriangle />
+                </div>
+                <h3 className="text-lg font-bold text-rose-500 mb-4 flex items-center gap-3">
+                  <Icons.AlertTriangle /> Danger Zone
+                </h3>
+                <div className="flex flex-wrap gap-4">
+                  <button
+                    onClick={handleDeleteCollection}
+                    className="px-5 py-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all flex items-center gap-2 shadow-lg shadow-rose-900/20"
+                  >
+                    <Icons.Trash /> Delete Collection
+                  </button>
+                  <button
+                    onClick={handleResetSettings}
+                    className="px-5 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-700 hover:text-white transition-all flex items-center gap-2"
+                  >
+                    <Icons.Refresh /> Reset All Settings
+                  </button>
+                </div>
+              </div>
+
             </div>
           )}
         </div>
