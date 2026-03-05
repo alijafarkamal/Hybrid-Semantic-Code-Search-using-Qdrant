@@ -41,7 +41,7 @@ class CodeSearcher:
     ) -> None:
         # Use HTTP endpoint on the provided URL (e.g. http://localhost:6333).
         # This avoids requiring the separate gRPC port to be exposed.
-        self.client = QdrantClient(url=qdrant_url)
+        self.client = QdrantClient(path="./qdrant_db")
         self.collection_name = collection_name
         # FastEmbed is much lighter - no PyTorch required.
         self.model = TextEmbedding(model_name=embedding_model)
@@ -63,30 +63,18 @@ class CodeSearcher:
         limit: int = 5,
         language_filter: Optional[str] = None,
         repo_filter: Optional[str] = None,
+        chunk_types_filter: Optional[List[str]] = None,
+        min_score: float = 0.0,
+        sort_by: str = "relevance",  # "relevance", "semantic", "lexical"
     ) -> List[Dict[str, Any]]:
-        """Search for code snippets matching a natural language query.
-
-        Returns a list of result dicts, each containing:
-
-        - score: fused semantic+lexical score
-        - semantic_score: raw Qdrant similarity
-        - lexical_score: TF-IDF cosine similarity
-        - file_path, repo_name, language
-        - start_line, end_line
-        - code_snippet
-        - symbol_name / symbol_type / signature / docstring (when available)
-        """
+        """Search for code snippets matching a natural language query."""
 
         # Ensure the target collection exists.
         try:
             self.client.get_collection(self.collection_name)
-        except Exception as e:  # pragma: no cover - defensive
+        except Exception as e:
             if "doesn't exist" in str(e) or "not found" in str(e).lower():
-                raise ValueError(
-                    f"Collection '{self.collection_name}' doesn't exist!\n"
-                    f"   Please run ingestion first:\n"
-                    f"   python ingest.py <directory> --repo-name <name>"
-                ) from e
+                raise ValueError(f"Collection '{self.collection_name}' doesn't exist!")
             raise
 
         # Generate (and cache) embedding for the query.
@@ -107,11 +95,19 @@ class CodeSearcher:
             must_conditions.append(
                 FieldCondition(key="repo_name", match=MatchValue(value=repo_filter))
             )
+        if chunk_types_filter:
+            # Qdrant match can take a list for 'any of'
+            from qdrant_client.models import MatchAny
+            must_conditions.append(
+                FieldCondition(key="symbol_type", match=MatchAny(any=chunk_types_filter))
+            )
+
         if must_conditions:
             query_filter = Filter(must=must_conditions)
 
         # Over-fetch candidates so lexical re-ranking has room to reshuffle.
-        initial_limit = max(limit * 5, limit)
+        # We fetch more if we have a min_score to be safer.
+        initial_limit = max(limit * 5, 50)
         results = self.client.query_points(
             collection_name=self.collection_name,
             query=query_embedding,
@@ -175,10 +171,21 @@ class CodeSearcher:
         for idx, point in enumerate(results.points):
             semantic_norm = semantic_scores[idx] / max_semantic
             lexical_norm = lexical_scores[idx] / max_lexical if max_lexical > 0 else 0.0
-            final_score = (
-                self.semantic_weight * semantic_norm
-                + self.lexical_weight * lexical_norm
-            )
+            
+            # Select primary score based on sort_by
+            if sort_by == "semantic":
+                final_score = semantic_norm
+            elif sort_by == "lexical":
+                final_score = lexical_norm
+            else:  # relevance (hybrid)
+                final_score = (
+                    self.semantic_weight * semantic_norm
+                    + self.lexical_weight * lexical_norm
+                )
+
+            # Apply min_score filter
+            if final_score < min_score:
+                continue
 
             payload = point.payload or {}
             fused.append(
