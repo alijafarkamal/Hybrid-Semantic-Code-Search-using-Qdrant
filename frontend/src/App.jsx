@@ -816,6 +816,9 @@ const App = () => {
                           type="range" min="0" max="1" step="0.05"
                           value={minScore} onChange={(e) => setMinScore(parseFloat(e.target.value))}
                           className="w-full premium-range"
+                          style={{
+                            background: `linear-gradient(to right, #06b6d4 0%, #14b8a6 ${minScore * 100}%, rgba(30, 41, 59, 0.5) ${minScore * 100}%, rgba(30, 41, 59, 0.5) 100%)`
+                          }}
                         />
                       </div>
 
@@ -871,7 +874,10 @@ const App = () => {
                         <input
                           type="range" min="1" max="50"
                           value={limit} onChange={(e) => setLimit(parseInt(e.target.value))}
-                          className="w-full accent-blue-500 h-1.5 bg-slate-700 rounded-full appearance-none cursor-pointer mt-2"
+                          className="w-full premium-range"
+                          style={{
+                            background: `linear-gradient(to right, #06b6d4 0%, #14b8a6 ${(limit / 50) * 100}%, rgba(30, 41, 59, 0.5) ${(limit / 50) * 100}%, rgba(30, 41, 59, 0.5) 100%)`
+                          }}
                         />
                       </div>
 

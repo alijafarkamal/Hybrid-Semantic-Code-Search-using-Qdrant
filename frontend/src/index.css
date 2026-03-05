@@ -153,34 +153,47 @@ body {
 .premium-range {
   -webkit-appearance: none;
   appearance: none;
-  height: 4px;
+  height: 6px;
   border-radius: 9999px;
   outline: none !important;
   cursor: pointer;
-  background: #1e293b;
+  background: rgba(30, 41, 59, 0.5);
   width: 100%;
-  transition: opacity 0.15s;
-}
-
-.premium-range:focus {
-  outline: none !important;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(51, 65, 85, 0.3);
 }
 
 .premium-range::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  background: radial-gradient(circle at 38% 38%, #60a5fa 0%, #2563eb 100%);
-  border: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.22), 0 2px 5px rgba(0, 0, 0, 0.7);
+  background: radial-gradient(circle at 35% 35%, #06b6d4, #14b8a6);
+  border: 2px solid #0f172a;
+  box-shadow: 0 0 10px rgba(20, 184, 166, 0.4), 0 2px 4px rgba(0, 0, 0, 0.5);
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .premium-range::-webkit-slider-thumb:hover {
-  transform: scale(1.25);
-  box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.18), 0 2px 8px rgba(0, 0, 0, 0.7);
+  transform: scale(1.2);
+  box-shadow: 0 0 15px rgba(20, 184, 166, 0.6), 0 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+.premium-range::-webkit-slider-thumb:active {
+  transform: scale(1.1);
+  background: radial-gradient(circle at 35% 35%, #22d3ee, #0d9488);
+}
+
+.premium-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #06b6d4, #14b8a6);
+  border: 2px solid #0f172a;
+  box-shadow: 0 0 10px rgba(20, 184, 166, 0.4), 0 2px 4px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 /* ─── Premium Hero Animations ─── */
