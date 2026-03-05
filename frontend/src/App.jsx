@@ -809,17 +809,17 @@ const App = () => {
               </div>
 
               {/* Advanced Filters */}
-              <div className="bg-[#111827]/50 border border-slate-800 rounded-2xl max-w-5xl mx-auto transition-all shadow-xl relative overflow-hidden">
+              <div className="bg-[#111827]/50 border border-slate-800 rounded-2xl max-w-5xl mx-auto transition-all shadow-xl relative">
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className="w-full p-4 flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest hover:text-slate-300 transition-colors bg-[#111827]"
+                  className={`w-full p-4 flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest hover:text-slate-300 transition-colors bg-[#111827] rounded-t-2xl ${!showFilters ? 'rounded-b-2xl' : ''}`}
                 >
                   <span className={`transition-transform duration-300 ${showFilters ? 'rotate-180' : 'rotate-90'}`}>⌵</span>
                   Advanced Filters
                 </button>
 
                 {showFilters && (
-                  <div className="px-6 py-5 animate-in fade-in slide-in-from-top-2 duration-300 border-t border-slate-800/50">
+                  <div className="px-6 py-5 animate-in fade-in slide-in-from-top-2 duration-300 border-t border-slate-800/50 rounded-b-2xl">
                     <div className="flex flex-wrap items-start gap-8">
 
                       {/* Language */}
@@ -1203,9 +1203,9 @@ const App = () => {
                     <input
                       type="range" min="0" max="1" step="0.1"
                       value={semanticWeight} onChange={e => setSemanticWeight(parseFloat(e.target.value))}
-                      className="w-full tuning-range"
+                      className="w-full premium-range"
                       style={{
-                        background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${semanticWeight * 100}%, #e2e8f0 ${semanticWeight * 100}%, #e2e8f0 100%)`
+                        background: `linear-gradient(to right, #06b6d4 0%, #10b981 ${semanticWeight * 100}%, #1e293b ${semanticWeight * 100}%, #1e293b 100%)`
                       }}
                     />
                   </div>
@@ -1219,7 +1219,7 @@ const App = () => {
                     {/* Bicolor Ratio Bar */}
                     <div className="h-6 w-full rounded-full overflow-hidden flex">
                       <div
-                        className="h-full bg-[#3b82f6] flex items-center justify-center transition-all duration-300 ease-out"
+                        className="h-full bg-[#06b6d4] flex items-center justify-center transition-all duration-300 ease-out"
                         style={{ width: `${semanticWeight * 100}%` }}
                       >
                         {semanticWeight > 0.15 && <span className="text-[11px] font-bold text-white">Semantic {(semanticWeight * 100).toFixed(0)}%</span>}
@@ -1242,9 +1242,9 @@ const App = () => {
                     <input
                       type="range" min="1" max="10" step="1"
                       value={overfetchMultiplier} onChange={e => setOverfetchMultiplier(parseInt(e.target.value))}
-                      className="w-full tuning-range"
+                      className="w-full premium-range"
                       style={{
-                        background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(overfetchMultiplier - 1) / 9 * 100}%, #e2e8f0 ${(overfetchMultiplier - 1) / 9 * 100}%, #e2e8f0 100%)`
+                        background: `linear-gradient(to right, #06b6d4 0%, #10b981 ${(overfetchMultiplier - 1) / 9 * 100}%, #1e293b ${(overfetchMultiplier - 1) / 9 * 100}%, #1e293b 100%)`
                       }}
                     />
                   </div>
