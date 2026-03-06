@@ -404,13 +404,68 @@ async def get_ingestion_history(db: Session = Depends(get_db), current_user: Any
 @app.delete("/ingestion-history")
 async def clear_ingestion_history(db: Session = Depends(get_db), current_user: Any = Depends(get_current_user)):
     try:
-        db.query(models.IngestionRecord).delete()
+        # 1. Clear SQLite History (Except "sample")
+        db.query(models.IngestionRecord).filter(
+            models.IngestionRecord.repo_name != "sample"
+        ).delete(synchronize_session=False)
         db.commit()
-        return {"message": "Ingestion history cleared successfully"}
+        
+        # 2. Clear Qdrant Vectors (Except "sample")
+        try:
+            from qdrant_client.http.models import Filter, FieldCondition, MatchValue
+            
+            # Delete points WHERE repo_name is NOT 'sample'
+            # (Qdrant doesn't have a direct "NOT equals", but we can use MustNot + MatchValue)
+            searcher.client.delete(
+                collection_name=searcher.collection_name,
+                points_selector=Filter(
+                    must_not=[
+                        FieldCondition(
+                            key="repo_name",
+                            match=MatchValue(value="sample")
+                        )
+                    ]
+                )
+            )
+        except Exception as q_err:
+            print(f"Warning: Failed to partially reset Qdrant collection: {q_err}")
+
+        return {"message": "Ingestion history cleared successfully (sample project preserved)"}
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/debug-clear")
+async def debug_clear_qdrant():
+    try:
+        # Fetch up to 100k points to manually delete everything but 'sample'
+        res = searcher.client.scroll(
+            collection_name=searcher.collection_name, 
+            limit=100000, 
+            with_payload=True, 
+            with_vectors=False
+        )
+        points = res[0]
+        
+        points_to_delete = []
+        for p in points:
+            # Safely check if 'sample' is in the repo name or if it exactly matches
+            r_name = p.payload.get("repo_name", "")
+            if "sample" not in r_name.lower():
+                points_to_delete.append(p.id)
+                
+        if points_to_delete:
+            searcher.client.delete(
+                collection_name=searcher.collection_name,
+                points_selector=points_to_delete
+            )
+            
+        return {
+            "message": f"Successfully deleted {len(points_to_delete)} non-sample ghost points from Qdrant.",
+            "total_scanned": len(points)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

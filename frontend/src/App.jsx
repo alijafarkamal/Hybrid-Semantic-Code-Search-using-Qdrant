@@ -397,7 +397,107 @@ const RepoRow = ({ repo }) => {
   );
 };
 
+// --- Custom Confirmation Modal ---
+const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, isDestructive, mode = "confirm" }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+      <div
+        className="bg-[#111827] border border-slate-700 shadow-2xl rounded-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-300"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-6">
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-5 ${isDestructive ? 'bg-rose-500/10 text-rose-500' : 'bg-blue-500/10 text-blue-500'}`}>
+            {isDestructive ? <Icons.AlertTriangle /> : <Icons.Database />}
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
+          <p className="text-slate-400 text-sm leading-relaxed">{message}</p>
+        </div>
+        <div className="px-6 py-4 bg-[#0f172a] border-t border-slate-800/50 flex items-center justify-end gap-3">
+          {mode === "confirm" && (
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+          )}
+          <button
+            onClick={() => {
+              onConfirm();
+              onClose();
+            }}
+            className={`px-5 py-2 text-sm font-semibold rounded-lg shadow-sm transition-all focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#111827] ${isDestructive
+              ? 'bg-rose-600 hover:bg-rose-500 text-white focus:ring-rose-500'
+              : 'bg-blue-600 hover:bg-blue-500 text-white focus:ring-blue-500'
+              }`}
+          >
+            {mode === "alert" ? "OK" : (isDestructive ? "Yes, Delete" : "Confirm")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const useConfirm = () => {
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    isDestructive: false,
+    mode: 'confirm',
+    resolve: null
+  });
+
+  const requestConfirm = (title, message, isDestructive = false) => {
+    return new Promise((resolve) => {
+      setModalConfig({
+        isOpen: true,
+        title,
+        message,
+        isDestructive,
+        mode: 'confirm',
+        resolve
+      });
+    });
+  };
+
+  const requestAlert = (title, message, isDestructive = false) => {
+    return new Promise((resolve) => {
+      setModalConfig({
+        isOpen: true,
+        title,
+        message,
+        isDestructive,
+        mode: 'alert',
+        resolve
+      });
+    });
+  };
+
+  const handleClose = () => {
+    if (modalConfig.resolve) modalConfig.resolve(false);
+    setModalConfig({ ...modalConfig, isOpen: false });
+  };
+
+  const handleConfirm = () => {
+    if (modalConfig.resolve) modalConfig.resolve(true);
+    setModalConfig({ ...modalConfig, isOpen: false });
+  };
+
+  return {
+    modalConfig,
+    requestConfirm,
+    requestAlert,
+    handleClose,
+    handleConfirm
+  };
+};
+
 const App = () => {
+  const { modalConfig, requestConfirm, requestAlert, handleClose, handleConfirm } = useConfirm();
 
   const [token, setToken] = useState(sessionStorage.getItem('scs_token'))
   const [username, setUsername] = useState(sessionStorage.getItem('scs_user'))
@@ -438,7 +538,12 @@ const App = () => {
   };
 
   const handleClearHistory = async () => {
-    if (!window.confirm("Are you sure you want to clear all ingestion history? This action cannot be undone.")) return;
+    const isConfirmed = await requestConfirm(
+      "Clear Ingestion History",
+      "Are you sure you want to clear all ingestion history? This action cannot be undone.",
+      true
+    );
+    if (!isConfirmed) return;
 
     setIsClearingHistory(true);
     try {
@@ -448,11 +553,11 @@ const App = () => {
       if (response.ok) {
         fetchIngestionHistory();
       } else {
-        alert("Failed to clear history.");
+        requestAlert("Error", "Failed to clear history.", true);
       }
     } catch (err) {
       console.error("Error clearing history:", err);
-      alert("Error clearing history.");
+      requestAlert("Error", "Error clearing history.", true);
     } finally {
       setIsClearingHistory(false);
     }
@@ -480,13 +585,14 @@ const App = () => {
         setIngestPath('');
         setIngestRepoName('');
         fetchIngestionHistory();
-        alert("Ingestion started in the background!");
+        requestAlert("Ingestion Started", "The repository is being ingested in the background.");
       } else {
         const error = await response.json();
-        alert(`Error: ${error.detail}`);
+        requestAlert("Ingestion Error", `Error: ${error.detail}`, true);
       }
     } catch (err) {
-      alert("Failed to start ingestion");
+      console.error(err);
+      requestAlert("Ingestion Failed", "Failed to start ingestion process.", true);
     } finally {
       setIsIngesting(false);
     }
@@ -792,17 +898,27 @@ const App = () => {
     }, 1500)
   }
 
-  const handleResetSettings = () => {
-    if (window.confirm("Are you sure you want to reset all settings?")) {
+  const handleResetSettings = async () => {
+    const isConfirmed = await requestConfirm(
+      "Reset Settings",
+      "Are you sure you want to reset all settings to their defaults?",
+      true
+    );
+    if (isConfirmed) {
       setSemanticWeight(0.7)
       setOverfetchMultiplier(5)
       setEmbeddingModel('BAAI/bge-small-en-v1.5')
     }
   }
 
-  const handleDeleteCollection = () => {
-    if (window.confirm("CRITICAL: This will permanently delete the collection. Continue?")) {
-      alert("Collection deleted (Simulated)")
+  const handleDeleteCollection = async () => {
+    const isConfirmed = await requestConfirm(
+      "Delete Collection",
+      "CRITICAL: This will permanently delete the collection and all its vectorized data. Are you absolutely sure you want to continue?",
+      true
+    );
+    if (isConfirmed) {
+      requestAlert("Collection Deleted", "The collection has been successfully deleted. (Simulated)")
     }
   }
 
@@ -841,12 +957,13 @@ const App = () => {
         sessionStorage.setItem('scs_user', data.name)
         setIsEditingProfile(false)
         setNewPassword('')
+        requestAlert("Profile Updated", "Your profile details have been saved successfully.");
       } else {
         const errorData = await resp.json()
-        alert(errorData.detail || "Update failed")
+        requestAlert("Update Failed", errorData.detail || "Update failed", true)
       }
     } catch {
-      alert("An error occurred during update")
+      requestAlert("Update Failed", "An error occurred during update", true)
     } finally {
       setProfileUpdateLoading(false)
     }
@@ -860,11 +977,33 @@ const App = () => {
   }
 
   if (!token) {
-    return <AuthPage onLogin={login} />
+    return (
+      <>
+        <AuthPage onLogin={login} />
+        <ConfirmationModal
+          isOpen={modalConfig.isOpen}
+          onClose={handleClose}
+          onConfirm={handleConfirm}
+          title={modalConfig.title}
+          message={modalConfig.message}
+          isDestructive={modalConfig.isDestructive}
+          mode={modalConfig.mode}
+        />
+      </>
+    );
   }
 
   return (
     <div className="flex h-screen bg-[#0b0f1a] text-slate-200 font-sans overflow-hidden">
+      <ConfirmationModal
+        isOpen={modalConfig.isOpen}
+        onClose={handleClose}
+        onConfirm={handleConfirm}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        isDestructive={modalConfig.isDestructive}
+        mode={modalConfig.mode}
+      />
 
       {/* Sidebar */}
       <aside className={`${sidebarCollapsed ? 'w-16' : 'w-52'} border-r border-slate-800/50 flex flex-col p-3 bg-[#0a0e17] shrink-0 transition-all duration-300 ease-in-out`}>
