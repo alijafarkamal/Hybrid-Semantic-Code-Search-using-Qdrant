@@ -1229,16 +1229,25 @@ const App = () => {
 
                       {/* Results Limit */}
                       <div className="space-y-2 min-w-[130px] flex-1 max-w-[200px]">
-                        <div className="flex justify-between">
+                        <div className="flex justify-between items-center">
                           <label className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Results Limit</label>
-                          <span className="text-[10px] font-mono text-slate-400">{limit}</span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={limit}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              if (!isNaN(val) && val > 0) setLimit(val);
+                            }}
+                            className="bg-[#0f172a] border border-slate-700 text-slate-300 text-[10px] font-mono px-2 py-0.5 rounded outline-none w-14 text-right focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all"
+                          />
                         </div>
                         <input
-                          type="range" min="1" max="50"
+                          type="range" min="1" max={Math.max(100, limit)}
                           value={limit} onChange={(e) => setLimit(parseInt(e.target.value))}
                           className="w-full premium-range"
                           style={{
-                            background: `linear-gradient(to right, #06b6d4 0%, #14b8a6 ${(limit / 50) * 100}%, rgba(30, 41, 59, 0.5) ${(limit / 50) * 100}%, rgba(30, 41, 59, 0.5) 100%)`
+                            background: `linear-gradient(to right, #06b6d4 0%, #14b8a6 ${(limit / Math.max(100, limit)) * 100}%, rgba(30, 41, 59, 0.5) ${(limit / Math.max(100, limit)) * 100}%, rgba(30, 41, 59, 0.5) 100%)`
                           }}
                         />
                       </div>
