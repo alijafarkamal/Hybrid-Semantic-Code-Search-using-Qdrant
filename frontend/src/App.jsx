@@ -1,9 +1,13 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  ScatterChart, Scatter, ZAxis, PieChart as RePie, Pie, Cell,
+  LineChart, Line, Legend
+} from 'recharts';
 
 const Icons = {
   Dashboard: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>,
   Search: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>,
-  Planner: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8V4H8" /><rect width="16" height="12" x="4" y="8" rx="2" /><path d="M2 14h2" /><path d="M20 14h2" /><path d="M15 13v2" /><path d="M9 13v2" /></svg>,
   Analytics: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" x2="12" y1="20" y2="10" /><line x1="18" x2="18" y1="20" y2="4" /><line x1="6" x2="6" y1="20" y2="16" /></svg>,
   Ingestion: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4" /><polyline points="14 2 14 8 20 8" /><path d="M2 15h10" /><path d="m9 18 3-3-3-3" /></svg>,
   Settings: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>,
@@ -152,7 +156,7 @@ const AuthPage = ({ onLogin }) => {
       } else {
         setError(data.detail || 'Authentication failed')
       }
-    } catch (err) {
+    } catch {
       setError('Connection to server failed')
     } finally {
       setLoading(false)
@@ -378,7 +382,7 @@ const App = () => {
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
         setProfileMenuOpen(false)
       }
-    }
+    };
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
@@ -454,10 +458,19 @@ const App = () => {
     langData: [],
     repoList: []
   })
+
+  // Analytics State
+  const [analyticsData, setAnalyticsData] = useState({
+    scoreDistribution: [],
+    correlation: [],
+    symbols: [],
+    languages: [],
+    performance: []
+  })
   const prevPointsRef = useRef(null)
 
   // Reactive Results Filtering
-  // Simplified as the backend now handles specific filtering; 
+  // Simplified as the backend now handles specific filtering;
   // keeping the hook structure in case global frontend-only post-processing is needed later.
   const displayedResults = useMemo(() => {
     return results;
@@ -522,8 +535,8 @@ const App = () => {
             })
           })
         }
-      } catch (err) {
-        console.error('Info fetch failed', err)
+      } catch {
+        console.error('Info fetch failed')
       }
     }
 
@@ -569,10 +582,59 @@ const App = () => {
         }),
       })
       const data = await response.json()
-      setResults(data.results || [])
-      setSearchTime(((performance.now() - startTime) / 1000).toFixed(2))
+      const searchLatency = performance.now() - startTime
+      const resultsData = data.results || []
 
-      // Smooth scroll to results 
+      setResults(resultsData)
+      setSearchTime((searchLatency / 1000).toFixed(2))
+
+      // Update Analytics Data
+      if (resultsData.length > 0) {
+        // 1. Score Distribution (Buckets of 0.1)
+        const buckets = Array(10).fill(0).map((_, i) => ({ range: `${(i / 10).toFixed(1)}-${((i + 1) / 10).toFixed(1)}`, count: 0 }))
+        resultsData.forEach(r => {
+          const idx = Math.min(Math.floor(r.score * 10), 9)
+          buckets[idx].count++
+        })
+
+        // 2. Correlation (Semantic vs Lexical)
+        const corr = resultsData.map(r => ({
+          semantic: r.semantic_score || 0,
+          lexical: r.lexical_score || 0,
+          name: r.symbol_name || 'block'
+        }))
+
+        // 3. Symbol Frequency
+        const symMap = {}
+        resultsData.forEach(r => {
+          const key = r.symbol_name || 'unknown'
+          if (!symMap[key]) symMap[key] = { name: key, type: r.symbol_type || 'block', file: r.file_path, count: 0 }
+          symMap[key].count++
+        })
+        const topSymbols = Object.values(symMap).sort((a, b) => b.count - a.count).slice(0, 6)
+
+        // 4. Languages
+        const langMap = {}
+        resultsData.forEach(r => {
+          const key = r.language || 'Other'
+          langMap[key] = (langMap[key] || 0) + 1
+        })
+        const langData = Object.entries(langMap).map(([name, value]) => ({ name, value }))
+
+        setAnalyticsData(prev => ({
+          scoreDistribution: buckets,
+          correlation: corr,
+          symbols: topSymbols,
+          languages: langData,
+          performance: [...prev.performance.map(p => ({ ...p, index: p.index })), { // Ensure index is sequential
+            index: prev.performance.length > 0 ? Math.max(...prev.performance.map(p => p.index)) + 1 : 1,
+            time: Math.round(searchLatency),
+            avg: Math.round([...prev.performance.map(p => p.time), searchLatency].reduce((a, b) => a + b, 0) / (prev.performance.length + 1))
+          }].slice(-20)
+        }))
+      }
+
+      // Smooth scroll to results
       setTimeout(() => {
         resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }, 100)
@@ -620,8 +682,8 @@ const App = () => {
         const data = await resp.json()
         setProfileData(data)
       }
-    } catch (err) {
-      console.error("Failed to fetch profile:", err)
+    } catch {
+      console.error("Failed to fetch profile:")
     }
   }
 
@@ -652,7 +714,7 @@ const App = () => {
         const errorData = await resp.json()
         alert(errorData.detail || "Update failed")
       }
-    } catch (err) {
+    } catch {
       alert("An error occurred during update")
     } finally {
       setProfileUpdateLoading(false)
@@ -685,7 +747,6 @@ const App = () => {
         <nav className="flex-1 space-y-1">
           <SidebarItem id="dashboard" label="Dashboard" icon={<Icons.Dashboard />} activeView={activeView} setView={setActiveView} collapsed={sidebarCollapsed} />
           <SidebarItem id="search" label="Search" icon={<Icons.Search />} activeView={activeView} setView={setActiveView} collapsed={sidebarCollapsed} />
-          <SidebarItem id="planner" label="AI Planner" icon={<Icons.Planner />} activeView={activeView} setView={setActiveView} collapsed={sidebarCollapsed} />
           <SidebarItem id="analytics" label="Analytics" icon={<Icons.Analytics />} activeView={activeView} setView={setActiveView} collapsed={sidebarCollapsed} />
           <SidebarItem id="ingestion" label="Ingestion" icon={<Icons.Ingestion />} activeView={activeView} setView={setActiveView} collapsed={sidebarCollapsed} />
           <SidebarItem id="settings" label="Settings" icon={<Icons.Settings />} activeView={activeView} setView={setActiveView} collapsed={sidebarCollapsed} />
@@ -710,9 +771,8 @@ const App = () => {
           <h2 className="text-xl font-bold text-white">
             {activeView === 'dashboard' ? 'Dashboard' :
               activeView === 'search' ? 'Code Search' :
-                activeView === 'planner' ? 'AI Planner' :
-                  activeView === 'analytics' ? 'Analytics' :
-                    activeView === 'ingestion' ? 'Ingestion' : 'Settings'}
+                activeView === 'analytics' ? 'Analytics' :
+                  activeView === 'ingestion' ? 'Ingestion' : 'Settings'}
           </h2>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
@@ -1098,24 +1158,189 @@ const App = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                  <span>Embedding Model: <span className="text-slate-300 ml-1">BAAI/bge-small-en-v1.5</span></span>
+                  <span>Embedding Model: <span className="text-slate-300 ml-1">{embeddingModel}</span></span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full"></span>
-                  <span>Gemini API: <span className="text-slate-300 ml-1">Configured</span></span>
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                  <span>Collection: <span className="text-slate-300 ml-1">{collectionName}</span></span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Planner View */}
-          {activeView === 'planner' && (
-            <div className="max-w-4xl mx-auto h-[60vh] flex flex-col items-center justify-center text-center opacity-50">
-              <div className="text-6xl mb-6">🤖</div>
-              <h3 className="text-2xl font-bold mb-4">AI Plan Integration</h3>
-              <p className="max-w-sm text-slate-500">The planner view is being migrated to this new layout. It will allow you to generate code refactoring steps directly from search results.</p>
+          {/* Analytics View */}
+          {activeView === 'analytics' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-12">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Score Distribution */}
+                <div className="bg-[#111827] border border-slate-800/80 rounded-[32px] p-8 shadow-2xl relative overflow-hidden group">
+                  <h3 className="text-lg font-bold text-white mb-8 flex items-center gap-3">
+                    <span className="text-blue-500 animate-pulse"><Icons.Analytics /></span>
+                    Score Distribution (Last Search)
+                  </h3>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-[80px] rounded-full -mr-16 -mt-16"></div>
+                  <div className="h-[220px] w-full min-h-[220px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={analyticsData.scoreDistribution}>
+                        <defs>
+                          <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#3b82f6" stopOpacity={1} />
+                            <stop offset="100%" stopColor="#2dd4bf" stopOpacity={1} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                        <XAxis dataKey="range" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#475569" fontSize={10} tickLine={false} axisLine={false} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '16px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.4)' }}
+                          itemStyle={{ color: '#fff' }}
+                          labelStyle={{ color: '#94a3b8' }}
+                          cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                        />
+                        <Bar dataKey="count" fill="url(#barGradient)" radius={[6, 6, 0, 0]} animationDuration={1000} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Score Correlation */}
+                <div className="bg-[#111827] border border-slate-800/80 rounded-[32px] p-8 shadow-2xl relative overflow-hidden">
+                  <h3 className="text-lg font-bold text-white mb-8 flex items-center gap-3">
+                    <span className="text-purple-500 animate-pulse"><Icons.Shield /></span>
+                    Semantic vs Lexical Score Correlation
+                  </h3>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-[80px] rounded-full -mr-16 -mt-16"></div>
+                  <div className="h-[220px] w-full min-h-[220px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                        <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
+                        <XAxis type="number" dataKey="lexical" name="Lexical" unit="" stroke="#475569" fontSize={10} domain={[0, 1]} />
+                        <YAxis type="number" dataKey="semantic" name="Semantic" unit="" stroke="#475569" fontSize={10} domain={[0, 1]} />
+                        <ZAxis type="category" dataKey="name" name="Symbol" />
+                        <Tooltip
+                          cursor={{ strokeDasharray: '3 3' }}
+                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '16px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.4)' }}
+                          itemStyle={{ color: '#fff' }}
+                          labelStyle={{ color: '#94a3b8' }}
+                        />
+                        <Scatter name="Matches" data={analyticsData.correlation} fill="#a855f7" fillOpacity={0.7} animationDuration={1200}>
+                          {analyticsData.correlation.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={['#3b82f6', '#a855f7', '#ec4899', '#f97316'][index % 4]} />
+                          ))}
+                        </Scatter>
+                      </ScatterChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Most Frequent Symbols */}
+                <div className="bg-[#111827] border border-slate-800/80 rounded-[32px] p-8 shadow-2xl">
+                  <h3 className="text-lg font-bold text-white mb-8 flex items-center gap-3">
+                    <span className="text-emerald-500 animate-pulse"><Icons.Code /></span>
+                    Most Frequently Found Symbols
+                  </h3>
+                  <div className="overflow-hidden">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-800/50">
+                          <th className="pb-4"># Symbol</th>
+                          <th className="pb-4">Type</th>
+                          <th className="pb-4">File</th>
+                          <th className="pb-4 text-right">Count</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-sm">
+                        {analyticsData.symbols && analyticsData.symbols.map((sym, i) => (
+                          <tr key={`${sym.name}-${i}`} className="border-b border-slate-800/30 group hover:bg-slate-800/20 transition-colors">
+                            <td className="py-4 font-mono text-[13px] text-white flex items-center gap-3">
+                              <span className="text-slate-600 font-bold">{i + 1}</span>
+                              {sym.name}
+                            </td>
+                            <td className="py-4">
+                              <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px] font-bold uppercase">{sym.type}</span>
+                            </td>
+                            <td className="py-4 text-slate-500 text-[11px] truncate max-w-[150px]">{sym.file}</td>
+                            <td className="py-4 text-right font-black text-white">{sym.count}</td>
+                          </tr>
+                        ))}
+                        {(!analyticsData.symbols || analyticsData.symbols.length === 0) && (
+                          <tr><td colSpan="4" className="py-12 text-center text-slate-600 italic text-xs">No analytics data yet. Perform a search to see stats.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Results by Language */}
+                <div className="bg-[#111827] border border-slate-800/80 rounded-[32px] p-8 shadow-2xl">
+                  <h3 className="text-lg font-bold text-white mb-8 flex items-center gap-3">
+                    <span className="text-orange-500 animate-pulse"><Icons.Globe /></span>
+                    Results by Language
+                  </h3>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 blur-[80px] rounded-full -mr-16 -mt-16"></div>
+                  <div className="h-[220px] w-full flex items-center justify-center min-h-[220px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RePie>
+                        <Pie
+                          data={analyticsData.languages || []}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          {(analyticsData.languages || []).map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={['#3b82f6', '#fbbf24', '#06b6d4', '#f97316', '#ec4899'][index % 5]} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '16px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.4)' }}
+                          itemStyle={{ color: '#fff' }}
+                          labelStyle={{ color: '#94a3b8' }}
+                        />
+                        <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '10px' }} />
+                      </RePie>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
+              {/* Performance Timeline */}
+              <div className="bg-[#111827] border border-slate-800/80 rounded-[32px] p-8 shadow-2xl relative overflow-hidden group">
+                <h3 className="text-lg font-bold text-white mb-8 flex items-center gap-3">
+                  <span className="text-cyan-500 animate-pulse"><Icons.Clock /></span>
+                  Search Performance Timeline
+                </h3>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 blur-[80px] rounded-full -mr-16 -mt-16"></div>
+                <div className="h-[180px] w-full min-h-[180px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={analyticsData.performance || []}>
+                      <defs>
+                        <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.5} />
+                          <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                      <XAxis dataKey="index" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} unit="ms" />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '16px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.4)' }}
+                        itemStyle={{ color: '#fff' }}
+                        labelStyle={{ color: '#94a3b8' }}
+                      />
+                      <Line type="monotone" dataKey="time" stroke="#0ea5e9" strokeWidth={3} dot={{ r: 4, fill: '#0ea5e9', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
+                      <Line type="monotone" dataKey="avg" stroke="#64748b" strokeDasharray="5 5" strokeWidth={1} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
             </div>
           )}
+
 
           {/* Settings View */}
           {activeView === 'settings' && (
