@@ -382,6 +382,7 @@ const App = () => {
   const [newExclude, setNewExclude] = useState('');
   const [isIngesting, setIsIngesting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isClearingHistory, setIsClearingHistory] = useState(false);
 
   // Fetch ingestion history
   const fetchIngestionHistory = async () => {
@@ -396,6 +397,27 @@ const App = () => {
       console.error("Error fetching ingestion history:", err);
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const handleClearHistory = async () => {
+    if (!window.confirm("Are you sure you want to clear all ingestion history? This action cannot be undone.")) return;
+
+    setIsClearingHistory(true);
+    try {
+      const response = await authFetch('http://localhost:8000/ingestion-history', {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        fetchIngestionHistory();
+      } else {
+        alert("Failed to clear history.");
+      }
+    } catch (err) {
+      console.error("Error clearing history:", err);
+      alert("Error clearing history.");
+    } finally {
+      setIsClearingHistory(false);
     }
   };
 
@@ -1332,16 +1354,31 @@ const App = () => {
                     <span className="text-blue-500"><Icons.Clock /></span>
                     Ingestion History
                   </h3>
-                  <button
-                    onClick={fetchIngestionHistory}
-                    disabled={isRefreshing}
-                    title="Refresh history"
-                    className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white disabled:opacity-50"
-                  >
-                    <span className={isRefreshing ? 'animate-spin inline-block' : 'inline-block'}>
-                      <Icons.Refresh />
-                    </span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={fetchIngestionHistory}
+                      disabled={isRefreshing || isClearingHistory}
+                      title="Refresh history"
+                      className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white disabled:opacity-50"
+                    >
+                      <span className={isRefreshing ? 'animate-spin inline-block' : 'inline-block'}>
+                        <Icons.Refresh />
+                      </span>
+                    </button>
+                    {ingestionHistory.length > 0 && (
+                      <button
+                        onClick={handleClearHistory}
+                        disabled={isClearingHistory || isRefreshing}
+                        title="Clear history"
+                        className="p-2 hover:bg-rose-500/10 rounded-full transition-colors text-slate-400 hover:text-rose-400 disabled:opacity-50"
+                      >
+                        <span className={isClearingHistory ? 'animate-pulse inline-block' : 'inline-block'}>
+                          <Icons.Trash />
+                        </span>
+                      </button>
+                    )}
+                  </div>
+
                 </div>
 
                 <div className="overflow-x-auto">

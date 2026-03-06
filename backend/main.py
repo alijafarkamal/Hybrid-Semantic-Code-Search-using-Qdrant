@@ -401,6 +401,17 @@ async def get_ingestion_history(db: Session = Depends(get_db), current_user: Any
     records = db.query(models.IngestionRecord).order_by(models.IngestionRecord.created_at.desc()).all()
     return records
 
+@app.delete("/ingestion-history")
+async def clear_ingestion_history(db: Session = Depends(get_db), current_user: Any = Depends(get_current_user)):
+    try:
+        db.query(models.IngestionRecord).delete()
+        db.commit()
+        return {"message": "Ingestion history cleared successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
