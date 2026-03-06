@@ -381,9 +381,11 @@ const App = () => {
   const [ingestExcludes, setIngestExcludes] = useState(['.git', 'node_modules', '__pycache__', '.venv', 'venv']);
   const [newExclude, setNewExclude] = useState('');
   const [isIngesting, setIsIngesting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch ingestion history
   const fetchIngestionHistory = async () => {
+    setIsRefreshing(true);
     try {
       const response = await authFetch('http://localhost:8000/ingestion-history');
       if (response.ok) {
@@ -392,6 +394,8 @@ const App = () => {
       }
     } catch (err) {
       console.error("Error fetching ingestion history:", err);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -1330,9 +1334,13 @@ const App = () => {
                   </h3>
                   <button
                     onClick={fetchIngestionHistory}
-                    className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white"
+                    disabled={isRefreshing}
+                    title="Refresh history"
+                    className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white disabled:opacity-50"
                   >
-                    <Icons.Refresh />
+                    <span className={isRefreshing ? 'animate-spin inline-block' : 'inline-block'}>
+                      <Icons.Refresh />
+                    </span>
                   </button>
                 </div>
 

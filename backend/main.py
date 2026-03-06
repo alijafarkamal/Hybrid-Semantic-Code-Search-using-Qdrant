@@ -1,8 +1,9 @@
-from fastapi import FastAPI, HTTPException, Depends, status, Security
+from fastapi import FastAPI, HTTPException, Depends, status, Security, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional, Any
+from datetime import datetime
 import os
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
@@ -18,6 +19,7 @@ models.Base.metadata.create_all(bind=engine)
 # Import existing logic
 from search import CodeSearcher
 from reasoning import generate_change_plan
+from ingest import CodeIngester
 
 # Load environment variables
 load_dotenv()
@@ -76,6 +78,23 @@ class SearchRequest(BaseModel):
     semantic_weight: float = 0.7
     overfetch_multiplier: int = 5
     mode: str = "search"  # "search" or "plan"
+
+class IngestRequest(BaseModel):
+    directory_path: str
+    repo_name: Optional[str] = None
+    exclude_dirs: Optional[List[str]] = None
+
+class IngestionRecordResponse(BaseModel):
+    id: int
+    repo_name: str
+    directory_path: str
+    files_count: int
+    chunks_count: int
+    status: str
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
 
 # Auth Security
 security = HTTPBearer()
@@ -231,6 +250,156 @@ async def info(current_user: Any = Depends(get_current_user)):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# Ingestion Endpoints
+def run_ingestion(record_id: int, directory_path: str, repo_name: str, exclude_dirs: Optional[List[str]]):
+    """Background task: ingest a directory using the SHARED Qdrant client.
+    
+    We intentionally reuse `searcher.client` (the already-open local DB
+    connection) instead of creating a new CodeIngester, which would try to
+    open a *second* connection to the same ./qdrant_db folder — Qdrant's local
+    mode only allows one writer at a time and raises 'use Qdrant server instead'.
+    """
+    db = next(get_db())
+    record = db.query(models.IngestionRecord).filter(models.IngestionRecord.id == record_id).first()
+    
+    try:
+        from pathlib import Path
+        from fastembed import TextEmbedding
+        from qdrant_client.models import VectorParams, Distance, PointStruct
+        from ingest import CodeChunker
+
+        # Reuse the shared Qdrant client — no second open needed
+        client = searcher.client
+        collection_name = searcher.collection_name
+
+        # Ensure collection exists (idempotent)
+        try:
+            client.get_collection(collection_name)
+        except Exception:
+            client.create_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(size=384, distance=Distance.COSINE),
+            )
+
+        # Load embedding model (same one as search.py)
+        embed_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+        chunker = CodeChunker()
+
+        language_map = {
+            '.py': 'python', '.js': 'javascript', '.ts': 'typescript',
+            '.java': 'java', '.cpp': 'cpp', '.c': 'c', '.cs': 'csharp',
+            '.go': 'go', '.rs': 'rust', '.rb': 'ruby', '.php': 'php',
+            '.swift': 'swift', '.kt': 'kotlin', '.md': 'markdown',
+        }
+
+        if exclude_dirs is None:
+            exclude_dirs = ['.git', 'node_modules', '__pycache__', '.venv', 'venv']
+
+        directory = Path(directory_path)
+        if not directory.exists():
+            raise ValueError(f"Directory not found: {directory_path}")
+
+        # Find all code files
+        code_files = []
+        for ext in language_map.keys():
+            code_files.extend(directory.rglob(f"*{ext}"))
+        code_files = [f for f in code_files if not any(ex in f.parts for ex in exclude_dirs)]
+
+        print(f"Ingesting {len(code_files)} files from {directory_path}")
+
+        all_points = []
+        total_chunks = 0
+        files_count = 0
+
+        for file_path in code_files:
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+
+                language = language_map.get(file_path.suffix.lower(), 'unknown')
+                chunks = chunker.chunk_file(str(file_path), content, language)
+
+                for chunk in chunks:
+                    embedding = list(embed_model.embed(chunk['text']))[0].tolist()
+                    payload = {
+                        'file_path': str(file_path.relative_to(directory)),
+                        'code_snippet': chunk['text'],
+                        'repo_name': repo_name,
+                        'language': language,
+                        'start_line': chunk['start_line'],
+                        'end_line': chunk['end_line'],
+                        'symbol_type': chunk.get('symbol_type', 'block'),
+                    }
+                    if chunk.get('symbol_name'):
+                        payload['symbol_name'] = chunk['symbol_name']
+                    if chunk.get('signature'):
+                        payload['signature'] = chunk['signature']
+                    if chunk.get('docstring'):
+                        payload['docstring'] = chunk['docstring']
+
+                    all_points.append(PointStruct(
+                        id=hash(f"{repo_name}:{file_path}:{chunk['start_line']}") & 0x7FFFFFFF,
+                        vector=embedding,
+                        payload=payload,
+                    ))
+                    total_chunks += 1
+
+                files_count += 1
+
+                if len(all_points) >= 100:
+                    client.upsert(collection_name=collection_name, points=all_points, wait=True)
+                    print(f"  Upserted batch, total so far: {total_chunks}")
+                    all_points = []
+
+            except Exception as e:
+                print(f"  Error processing {file_path}: {e}")
+                continue
+
+        if all_points:
+            client.upsert(collection_name=collection_name, points=all_points, wait=True)
+
+        record.status = "Complete"
+        record.chunks_count = total_chunks
+        record.files_count = files_count
+        db.commit()
+        print(f"Ingestion done: {files_count} files, {total_chunks} chunks for '{repo_name}'")
+
+    except Exception as e:
+        if record:
+            record.status = "Error"
+        print(f"Ingestion error for {repo_name}: {e}")
+        db.commit()
+    finally:
+        db.close()
+
+@app.post("/ingest")
+async def start_ingestion(request: IngestRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: Any = Depends(get_current_user)):
+    # Create record
+    new_record = models.IngestionRecord(
+        repo_name=request.repo_name or os.path.basename(request.directory_path),
+        directory_path=request.directory_path,
+        status="In Progress"
+    )
+    db.add(new_record)
+    db.commit()
+    db.refresh(new_record)
+    
+    # Start background task
+    background_tasks.add_task(
+        run_ingestion, 
+        new_record.id, 
+        request.directory_path, 
+        new_record.repo_name, 
+        request.exclude_dirs
+    )
+    
+    return {"message": "Ingestion started", "record_id": new_record.id}
+
+@app.get("/ingestion-history", response_model=List[IngestionRecordResponse])
+async def get_ingestion_history(db: Session = Depends(get_db), current_user: Any = Depends(get_current_user)):
+    records = db.query(models.IngestionRecord).order_by(models.IngestionRecord.created_at.desc()).all()
+    return records
 
 if __name__ == "__main__":
     import uvicorn
