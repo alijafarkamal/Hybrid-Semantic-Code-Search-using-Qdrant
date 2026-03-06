@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ScatterChart, Scatter, ZAxis, PieChart as RePie, Pie, Cell,
@@ -1624,20 +1624,50 @@ const App = () => {
                   <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-[80px] rounded-full -mr-16 -mt-16"></div>
                   <div className="h-[220px] w-full min-h-[220px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                        <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
-                        <XAxis type="number" dataKey="lexical" name="Lexical" unit="" stroke="#475569" fontSize={10} domain={[0, 1]} />
-                        <YAxis type="number" dataKey="semantic" name="Semantic" unit="" stroke="#475569" fontSize={10} domain={[0, 1]} />
-                        <ZAxis type="category" dataKey="name" name="Symbol" />
-                        <Tooltip
-                          cursor={{ strokeDasharray: '3 3' }}
-                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '16px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.4)' }}
-                          itemStyle={{ color: '#fff' }}
-                          labelStyle={{ color: '#94a3b8' }}
+                      <ScatterChart margin={{ top: 20, right: 30, bottom: 20, left: 10 }}>
+                        <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
+                        <XAxis
+                          type="number"
+                          dataKey="lexical"
+                          name="Lexical Score"
+                          stroke="#64748b"
+                          fontSize={10}
+                          domain={[0, 1]}
+                          tickCount={6}
+                          tickLine={false}
+                          axisLine={false}
                         />
-                        <Scatter name="Matches" data={analyticsData.correlation} fill="#a855f7" fillOpacity={0.7} animationDuration={1200}>
+                        <YAxis
+                          type="number"
+                          dataKey="semantic"
+                          name="Semantic Score"
+                          stroke="#64748b"
+                          fontSize={10}
+                          domain={[0, 1]}
+                          tickCount={6}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <ZAxis
+                          type="number"
+                          dataKey={(entry) => (entry.semantic + entry.lexical) * 100}
+                          range={[80, 500]}
+                          name="Combined Score"
+                        />
+                        <Tooltip
+                          cursor={{ strokeDasharray: '3 3', stroke: '#334155' }}
+                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)', padding: '12px' }}
+                          itemStyle={{ color: '#fff', fontWeight: 'bold' }}
+                          labelStyle={{ color: '#94a3b8', marginBottom: '8px', borderBottom: '1px solid #1e293b', paddingBottom: '4px' }}
+                        />
+                        <Scatter name="Matches" data={analyticsData.correlation} fillOpacity={0.8} animationDuration={1000}>
                           {analyticsData.correlation.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={['#3b82f6', '#a855f7', '#ec4899', '#f97316'][index % 4]} />
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={['#3b82f6', '#10b981', '#f43f5e', '#a855f7', '#f59e0b', '#06b6d4'][index % 6]}
+                              stroke="rgba(255,255,255,0.2)"
+                              strokeWidth={2}
+                            />
                           ))}
                         </Scatter>
                       </ScatterChart>
