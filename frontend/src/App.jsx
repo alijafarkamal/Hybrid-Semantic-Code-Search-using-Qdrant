@@ -28,8 +28,9 @@ const Icons = {
   EyeOff: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>,
   Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>,
   AlertTriangle: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>,
-  Refresh: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M3 21v-5h5" /></svg>,
-  Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+  Play: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3" /></svg>,
+  Refresh: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.83 6.72 2.24" /><polyline points="21 3 21 9 15 9" /></svg>,
+  Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
 }
 
 const CustomDropdown = ({ value, onChange, options, label }) => {
@@ -372,6 +373,73 @@ const App = () => {
   const [profileUpdateLoading, setProfileUpdateLoading] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+
+  // Ingestion State
+  const [ingestionHistory, setIngestionHistory] = useState([]);
+  const [ingestPath, setIngestPath] = useState('');
+  const [ingestRepoName, setIngestRepoName] = useState('');
+  const [ingestExcludes, setIngestExcludes] = useState(['.git', 'node_modules', '__pycache__', '.venv', 'venv']);
+  const [newExclude, setNewExclude] = useState('');
+  const [isIngesting, setIsIngesting] = useState(false);
+
+  // Fetch ingestion history
+  const fetchIngestionHistory = async () => {
+    try {
+      const response = await authFetch('http://localhost:8000/ingestion-history');
+      if (response.ok) {
+        const data = await response.json();
+        setIngestionHistory(data);
+      }
+    } catch (err) {
+      console.error("Error fetching ingestion history:", err);
+    }
+  };
+
+  const handleStartIngestion = async (e) => {
+    e.preventDefault();
+    if (!ingestPath) return;
+
+    setIsIngesting(true);
+    try {
+      const response = await authFetch('http://localhost:8000/ingest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          directory_path: ingestPath,
+          repo_name: ingestRepoName || null,
+          exclude_dirs: ingestExcludes
+        })
+      });
+
+      if (response.ok) {
+        setIngestPath('');
+        setIngestRepoName('');
+        fetchIngestionHistory();
+        alert("Ingestion started in the background!");
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.detail}`);
+      }
+    } catch (err) {
+      alert("Failed to start ingestion");
+    } finally {
+      setIsIngesting(false);
+    }
+  };
+
+  const removeExclude = (tag) => {
+    setIngestExcludes(ingestExcludes.filter(t => t !== tag));
+  };
+
+  useEffect(() => {
+    if (activeView === 'ingestion') {
+      fetchIngestionHistory();
+      const interval = setInterval(fetchIngestionHistory, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [activeView]);
 
   const resultsRef = useRef(null)
   const profileMenuRef = useRef(null)
@@ -895,7 +963,7 @@ const App = () => {
                         label="Repository"
                         value={repo}
                         onChange={(val) => setRepo(val)}
-                        options={['All', 'my-backend']}
+                        options={['All', ...stats.repoList.map(r => r.name)]}
                       />
 
                       {/* Min Score Slider */}
@@ -1169,6 +1237,149 @@ const App = () => {
           )}
 
           {/* Analytics View */}
+          {activeView === 'ingestion' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+              {/* Ingest Form */}
+              <div className="bg-[#111827] border border-slate-800/80 rounded-[32px] p-6 shadow-2xl relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-[80px] rounded-full -mr-16 -mt-16"></div>
+
+                <h3 className="text-lg font-bold text-white mb-5 flex items-center gap-3">
+                  <span className="text-emerald-500"><Icons.Ingestion /></span>
+                  Ingest New Repository
+                </h3>
+
+                <form onSubmit={handleStartIngestion} className="space-y-4 relative z-10">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Directory Path</label>
+                      <input
+                        type="text"
+                        value={ingestPath}
+                        onChange={(e) => setIngestPath(e.target.value)}
+                        placeholder="/path/to/your/project"
+                        className="w-full bg-[#0b0f1a] border border-slate-800 focus:border-emerald-500/50 rounded-2xl py-2 px-5 text-sm outline-none transition-all"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Repository Name (Options)</label>
+                      <input
+                        type="text"
+                        value={ingestRepoName}
+                        onChange={(e) => setIngestRepoName(e.target.value)}
+                        placeholder="my-project"
+                        className="w-full bg-[#0b0f1a] border border-slate-800 focus:border-emerald-500/50 rounded-2xl py-2 px-5 text-sm outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Exclude Directories</label>
+                    <div className="flex flex-wrap gap-2 p-2 bg-[#0b0f1a] border border-slate-800 rounded-2xl min-h-[40px] focus-within:border-emerald-500/50 transition-all">
+                      {ingestExcludes.map(tag => (
+                        <span key={tag} className="flex items-center gap-1.5 bg-slate-800/50 text-slate-300 px-3 py-1 rounded-full text-[11px] font-bold border border-slate-700/50">
+                          {tag}
+                          <button type="button" onClick={() => removeExclude(tag)} className="text-slate-500 hover:text-rose-400 transition-colors">
+                            <Icons.Close size={14} />
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        type="text"
+                        value={newExclude}
+                        onChange={(e) => setNewExclude(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const tag = newExclude.trim();
+                            if (tag && !ingestExcludes.includes(tag)) {
+                              setIngestExcludes([...ingestExcludes, tag]);
+                            }
+                            setNewExclude('');
+                          }
+                        }}
+                        placeholder="Add..."
+                        className="flex-1 bg-transparent border-none outline-none py-1 px-3 text-sm text-slate-300 min-w-[100px]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={isIngesting || !ingestPath}
+                      className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black px-8 py-2.5 rounded-2xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center gap-3 text-sm uppercase tracking-widest"
+                    >
+                      {isIngesting ? (
+                        <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                      ) : (
+                        <Icons.Play />
+                      )}
+                      <span>{isIngesting ? 'Processing...' : 'Start Ingestion'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Ingestion History */}
+              <div className="bg-[#111827] border border-slate-800/80 rounded-[32px] p-8 shadow-2xl relative overflow-hidden">
+                <div className="flex justify-between items-center mb-8">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                    <span className="text-blue-500"><Icons.Clock /></span>
+                    Ingestion History
+                  </h3>
+                  <button
+                    onClick={fetchIngestionHistory}
+                    className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white"
+                  >
+                    <Icons.Refresh />
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-800/50">
+                        <th className="pb-4 px-2">Repo</th>
+                        <th className="pb-4 px-2">Directory</th>
+                        <th className="pb-4 px-2">Files</th>
+                        <th className="pb-4 px-2">Chunks</th>
+                        <th className="pb-4 px-2">Date</th>
+                        <th className="pb-4 px-2">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-sm">
+                      {ingestionHistory.map((record) => (
+                        <tr key={record.id} className="border-b border-slate-800/30 group hover:bg-slate-800/20 transition-colors">
+                          <td className="py-3 px-2 font-bold text-white">{record.repo_name}</td>
+                          <td className="py-3 px-2 text-slate-500 font-mono text-[11px] max-w-[200px] truncate">{record.directory_path}</td>
+                          <td className="py-3 px-2 text-slate-400 font-mono text-xs">{record.files_count || '--'}</td>
+                          <td className="py-3 px-2 text-slate-400 font-mono text-xs">{record.chunks_count || '--'}</td>
+                          <td className="py-3 px-2 text-slate-500 text-xs">{new Date(record.created_at).toLocaleDateString()}</td>
+                          <td className="py-3 px-2">
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1.5 w-fit ${record.status === 'Complete' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                              record.status === 'In Progress' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                                'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                              }`}>
+                              {record.status === 'Complete' ? <Icons.Check /> :
+                                record.status === 'In Progress' ? <span className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></span> :
+                                  <Icons.AlertTriangle />}
+                              {record.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                      {ingestionHistory.length === 0 && (
+                        <tr>
+                          <td colSpan="6" className="py-12 text-center text-slate-600 italic text-xs">No ingestion history found.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
           {activeView === 'analytics' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-12">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
