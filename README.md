@@ -1,116 +1,121 @@
-# Semantic Code Search + AI Code Assistant
+<div align="center">
+  <h1>🚀 SCS Pro: Semantic Code Search & AI Assistant</h1>
+  <p>
+    <strong>Enterprise-grade codebase search, AST-aware python ingestion, and Gemini-powered change planning.</strong>
+  </p>
+  <p>
+    <img src="https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
+    <img src="https://img.shields.io/badge/Frontend-React+Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React" />
+    <img src="https://img.shields.io/badge/Vector_DB-Qdrant-FF5252?style=for-the-badge&logo=qdrant&logoColor=white" alt="Qdrant" />
+    <img src="https://img.shields.io/badge/AI-Gemini-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Gemini" />
+  </p>
+</div>
 
-## What this project does
+---
 
-This repo turns your codebase into an AI-assisted code search and planning tool:
+## 📖 Overview
 
-- **Semantic code search** – find code by meaning, not just exact keywords.
-- **Hybrid ranking (embeddings + TF‑IDF)** – combines vector similarity with a
-    lightweight lexical scorer so exact symbol/config names get boosted.
-- **Per-symbol Python ingestion** – uses the Python AST to index functions and
-    classes as first-class symbols with name, signature, and docstring.
-- **Gemini-powered change planning** – given a natural-language goal, it
-    retrieves relevant code and asks Gemini (via the `google-genai` SDK) to
-    propose a structured change plan (what files/lines to touch, why, and what
-    to test).
-- **Qdrant-backed vector store** – all code chunks and symbols are stored in a
-    local Qdrant collection for fast similarity search.
-- **CLI + Gradio UI** – run searches from the command line or a modern web UI
-    with a togglable `search` / `plan` mode.
+This repository transforms your codebase into an intelligent, AI-assisted code search and planning environment. By combining modern vector-based semantic search with lightweight lexical scoring and generative AI, **SCS Pro** allows developers to natively query, understand, and plan changes across large repositories.
 
-At a high level:
+- **Hybrid Semantic & Lexical Search** – Find code by its meaning, not just exact keywords. Qdrant handles FastEmbed vectors (cosine similarity) while a custom TF‑IDF scorer ranks exact identifier/symbol matches to give you the best of both worlds.
+- **AST-Aware Ingestion** – Python AST is utilized to index functions and classes as first-class symbols, preserving signatures, definitions, and docstrings. 
+- **Gemini-Powered Change Planning** – Once relevant code is found, the system delegates a natural-language goal to Google's Gemini LLM (via the `google-genai` SDK) to propose a structured, verifiable change plan (including files to modify, existing logic summaries, and suggested tests).
+- **Dual Interfaces** – Includes a modern React/Vite-based frontend with a stunning UI, as well as a Gradio-based web interface and CLI for power users.
 
-1. `ingest.py` recursively walks your project, extracts symbols/blocks, and
-     stores embeddings + metadata in Qdrant.
-2. `search.py` performs **hybrid search**:
-     - semantic score from Qdrant (FastEmbed vectors, cosine distance)
-     - lexical score from a simple TF‑IDF-style scorer over the retrieved code
-     - final score = 0.7 × semantic + 0.3 × lexical
-3. `reasoning.py` takes a query + top search results and calls **Gemini**
-     (`gemini-3-flash-preview`) to return a JSON change plan.
-4. `ui_gradio.py` exposes both search and plan modes in a web UI.
+## ✨ Key Features
 
-## How Qdrant and TF‑IDF work together
+- **Deep Code Ingestion**: Walk directories recursively and parse files intelligently.
+- **Hybrid Ranking Engine**: Fused scores (0.7 × Semantic + 0.3 × Lexical) for phenomenal precision.
+- **Change Plan Generation**: `plan` mode streams Gemini's structured JSON response grounded *only* in the retrieved context.
+- **Premium User Interface**: Dark-themed, responsive, glassmorphic React dashboard (`frontend/`) for a seamless visualization of repositories, searches, and plans.
+- **Multi-tenant Backend**: Built-in authentication (JWT) and user access via FastAPI.
+- **Zero PyTorch Dependency**: Uses [FastEmbed](https://qdrant.github.io/fastembed/) for extremely fast, lightweight embedding generation locally.
 
-- **Qdrant (vector search)**
-    - Stores 384‑dimensional FastEmbed vectors for each code chunk/symbol.
-    - Uses cosine similarity to find semantically similar snippets.
-    - Supports payload filters such as `language` and `repo_name`.
+---
 
-- **TF‑IDF lexical scoring in `search.py`**
-    - Tokenises the query and candidate snippets into simple terms
-        (identifiers, words, numbers).
-    - Builds sparse TF‑IDF vectors and computes cosine similarity.
-    - Slightly boosts results whose `symbol_name` appears in the query.
-    - The fused score improves relevance for things like config keys or
-        function names you remember exactly.
+## 🛠️ Architecture & Tech Stack
 
-## How Gemini is used
+### Backend (`/backend`)
+- **FastAPI**: Core API framework handling authentication, searches, indexing, and history.
+- **Qdrant**: Vector database running via Docker to store 384-dimensional FastEmbed payload chunks.
+- **FastEmbed**: Generates embeddings (e.g., `BAAI/bge-small-en-v1.5`) without the heavy PyTorch footprint.
+- **Gemini (`gemini-3-flash-preview`)**: LLM for reasoning, summarizing, and building modification plans.
 
-Gemini is **not** used for raw search; it is only used for reasoning on top
-of retrieved context:
+### Frontend (`/frontend`)
+- **React 18 + Vite**: Lightning-fast build tooling and UI framework.
+- **Recharts**: For rendering analytics and metrics on the dashboard.
+- **Tailwind CSS**: Utility-first styling with premium glassmorphism and modern gradient designs.
 
-- `reasoning.generate_change_plan(query, results)`:
-    - Builds a compact text context from the top search results, including file
-        paths, line ranges, symbol metadata, and code (truncated for length).
-    - Sends a single prompt to Gemini asking for a strict JSON object with:
-        - `goal`
-        - `files_to_modify` (with reasons and line ranges)
-        - `existing_logic_summary`
-        - `suggested_changes` (per file, with change_type and considerations)
-        - `tests_to_update`.
-    - Parses the JSON and **filters out any file paths that are not in the
-        retrieved results**, so plans stay grounded in real files.
+---
 
-The Gradio UI and CLI both expose a **plan** mode that runs this pipeline and
-prints/renders Gemini’s structured response.
+## 🚀 Quick Start Guide
 
-## Quick Start
+### 1. Start Qdrant (Vector Database)
 
-### 1. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
+Ensure you have Docker installed, then start a local Qdrant instance:
 
-### 2. Start Qdrant
 ```bash
 docker run -p 6333:6333 -p 6334:6334 \
     -v "$(pwd)/qdrant_storage:/qdrant/storage:z" \
     qdrant/qdrant
 ```
 
-### 3. Ingest code
+### 2. Setup the Backend
+
+Navigate to the `backend` directory and install the Python dependencies:
+
 ```bash
-python ingest.py sample_project --repo-name sample-project
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows use: venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-### 4. Search and plan
-```bash
-# CLI
-python search.py "database connection"
+**Run the FastAPI Server:**
 
-# Web UI
-python ui_gradio.py
-# Open http://localhost:7860
+```bash
+uvicorn main:app --reload --port 8000
 ```
 
-## Features
+*(Alternatively, run the Gradio UI locally via `python ui_gradio.py`)*
 
-- Recursive code ingestion from directories.
-- AST-aware Python chunking into functions and classes with signature + docstring.
-- Hybrid semantic + lexical ranking (FastEmbed + TF‑IDF).
-- Gemini-backed change planning (`plan` mode) with JSON outputs.
-- CLI and Gradio web UI with search/plan toggle.
-- Multi-language support (Python, JavaScript, Java, C++, etc.).
-- Metadata filtering (language, repository).
+### 3. Setup the Frontend
 
-## Tech Stack
+Open a new terminal, navigate to the `frontend` directory:
 
-- **Qdrant**: Vector database for similarity search
-- **FastEmbed**: Lightweight embedding generation (no PyTorch!)
-- **Gradio**: Web UI framework
-- **Python**: Core implementation
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-## License
+Visit `http://localhost:5173` in your browser.
 
-Open source - available for use.
+---
+
+## 🧠 How Qdrant and TF‑IDF Work Together
+
+The search pipeline natively fuses two distinct database search techniques:
+1. **Qdrant (Vector Search)**: 
+   Finds semantically similar snippets computing the cosine similarity between the natural language query and 384-dimensional stored embedded blocks.
+2. **TF‑IDF Lexical Scoring**:
+   The `search.py` module tokenizes the query and candidate snippets down to raw identifiers and words, building sparse TF-IDF vectors. It provides a strategic score boost to exact symbol names, giving incredible reliance for config keys or explicit function lookups.
+
+---
+
+## 🤖 The Gemini Planning Engine
+
+Gemini is strictly used for **reasoning on top of retrieved context**, not for raw searching. 
+
+When a user triggers a plan, `reasoning.py` builds an optimized, token-efficient prompt containing the top retrieval results (files, lines ranges, signatures, constrained logic). Gemini responds with a strict JSON object mapping out:
+- High-level goal interpretation.
+- Affected files with specific lines to target.
+- Verifiable test integration strategies.
+
+The system then auto-filters file hallucinations, ensuring that suggested changes are grounded strictly within your real, indexed project space.
+
+---
+
+## 📜 License
+
+This project is Open Source and available for use, modification, and distribution.
