@@ -66,3 +66,7 @@ Thumbs.db
 
 backend/qdrant_db/
 *.lock
+
+# SRS documents (local only)
+SRS_document.md
+SRS_template-ieee.doc
