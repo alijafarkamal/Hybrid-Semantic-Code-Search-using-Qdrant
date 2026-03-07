@@ -365,7 +365,7 @@ class CodeIngester:
         collection_name: str = "code_search",
         embedding_model: str = "BAAI/bge-small-en-v1.5"
     ):
-        self.client = QdrantClient(url=qdrant_url)
+        self.client = QdrantClient(path="./qdrant_db")
         self.collection_name = collection_name
         # FastEmbed is much lighter - no PyTorch required!
         self.model = TextEmbedding(model_name=embedding_model)
@@ -386,6 +386,8 @@ class CodeIngester:
             '.php': 'php',
             '.swift': 'swift',
             '.kt': 'kotlin',
+            '.md': 'markdown',
+            '.markdown': 'markdown',
         }
     
     def detect_language(self, file_path: str) -> str:

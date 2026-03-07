@@ -41,7 +41,7 @@ class CodeSearcher:
     ) -> None:
         # Use HTTP endpoint on the provided URL (e.g. http://localhost:6333).
         # This avoids requiring the separate gRPC port to be exposed.
-        self.client = QdrantClient(url=qdrant_url)
+        self.client = QdrantClient(path="./qdrant_db")
         self.collection_name = collection_name
         # FastEmbed is much lighter - no PyTorch required.
         self.model = TextEmbedding(model_name=embedding_model)
@@ -63,30 +63,24 @@ class CodeSearcher:
         limit: int = 5,
         language_filter: Optional[str] = None,
         repo_filter: Optional[str] = None,
+        chunk_types_filter: Optional[List[str]] = None,
+        min_score: float = 0.0,
+        sort_by: str = "relevance",  # "relevance", "semantic", "lexical"
+        semantic_weight: Optional[float] = None,
+        overfetch_multiplier: int = 5,
     ) -> List[Dict[str, Any]]:
-        """Search for code snippets matching a natural language query.
+        """Search for code snippets matching a natural language query."""
 
-        Returns a list of result dicts, each containing:
-
-        - score: fused semantic+lexical score
-        - semantic_score: raw Qdrant similarity
-        - lexical_score: TF-IDF cosine similarity
-        - file_path, repo_name, language
-        - start_line, end_line
-        - code_snippet
-        - symbol_name / symbol_type / signature / docstring (when available)
-        """
+        # Use provided weight or fall back to instance default
+        s_weight = semantic_weight if semantic_weight is not None else self.semantic_weight
+        l_weight = 1.0 - s_weight
 
         # Ensure the target collection exists.
         try:
             self.client.get_collection(self.collection_name)
-        except Exception as e:  # pragma: no cover - defensive
+        except Exception as e:
             if "doesn't exist" in str(e) or "not found" in str(e).lower():
-                raise ValueError(
-                    f"Collection '{self.collection_name}' doesn't exist!\n"
-                    f"   Please run ingestion first:\n"
-                    f"   python ingest.py <directory> --repo-name <name>"
-                ) from e
+                raise ValueError(f"Collection '{self.collection_name}' doesn't exist!")
             raise
 
         # Generate (and cache) embedding for the query.
@@ -100,18 +94,27 @@ class CodeSearcher:
         query_filter: Optional[Filter] = None
         must_conditions: List[FieldCondition] = []
         if language_filter:
+            # Ingestion stores languages in lowercase (e.g. 'python'), 
+            # while the frontend might send capitalized versions (e.g. 'Python').
             must_conditions.append(
-                FieldCondition(key="language", match=MatchValue(value=language_filter))
+                FieldCondition(key="language", match=MatchValue(value=language_filter.lower()))
             )
         if repo_filter:
             must_conditions.append(
                 FieldCondition(key="repo_name", match=MatchValue(value=repo_filter))
             )
+        if chunk_types_filter:
+            # Qdrant match can take a list for 'any of'
+            from qdrant_client.models import MatchAny
+            must_conditions.append(
+                FieldCondition(key="symbol_type", match=MatchAny(any=chunk_types_filter))
+            )
+
         if must_conditions:
             query_filter = Filter(must=must_conditions)
 
         # Over-fetch candidates so lexical re-ranking has room to reshuffle.
-        initial_limit = max(limit * 5, limit)
+        initial_limit = max(limit * overfetch_multiplier, 50)
         results = self.client.query_points(
             collection_name=self.collection_name,
             query=query_embedding,
@@ -168,17 +171,38 @@ class CodeSearcher:
             lexical_scores.append(score)
 
         semantic_scores = [p.score for p in results.points]
-        max_semantic = max(semantic_scores) or 1.0
-        max_lexical = max(lexical_scores) or 1.0
+        
+        # Normalization: handle edge cases where all scores are the same or zero
+        min_sem, max_sem = min(semantic_scores), max(semantic_scores)
+        range_sem = max_sem - min_sem if max_sem > min_sem else 1.0
+        
+        min_lex, max_lex = min(lexical_scores), max(lexical_scores)
+        range_lex = max_lex - min_lex if max_lex > min_lex else 1.0
 
         fused: List[Dict[str, Any]] = []
         for idx, point in enumerate(results.points):
-            semantic_norm = semantic_scores[idx] / max_semantic
-            lexical_norm = lexical_scores[idx] / max_lexical if max_lexical > 0 else 0.0
-            final_score = (
-                self.semantic_weight * semantic_norm
-                + self.lexical_weight * lexical_norm
-            )
+            # Normalize to [0, 1] based on the current candidate set
+            semantic_norm = (semantic_scores[idx] - min_sem) / range_sem if max_sem > min_sem else 1.0
+            lexical_norm = (lexical_scores[idx] - min_lex) / range_lex if max_lex > min_lex else 0.0
+            
+            # If everything is identical (e.g. all 0), default to 1 for semantic if it was the top hit
+            if max_sem == min_sem and idx == 0: semantic_norm = 1.0
+            
+            # Select primary score based on sort_by
+            if sort_by == "semantic":
+                final_score = semantic_norm
+            elif sort_by == "lexical":
+                # Special case: if lexical matches are found, use norm; 
+                # if no lexical matches found at ALL, avoid returning 1.0 incorrectly
+                final_score = lexical_norm if max_lex > 0 else 0.0
+            else:  # relevance (hybrid)
+                final_score = (s_weight * semantic_norm) + (l_weight * lexical_norm)
+
+            # Apply min_score filter
+            # If min_score is high (e.g. 0.5), we only keep results that are significantly
+            # better than the worst hit in the top-50.
+            if final_score < min_score:
+                continue
 
             payload = point.payload or {}
             fused.append(

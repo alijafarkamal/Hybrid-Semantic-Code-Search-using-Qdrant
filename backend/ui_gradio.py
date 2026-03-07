@@ -30,10 +30,12 @@ def search_code(
     try:
         # Initialize searcher
         searcher = CodeSearcher(
-            qdrant_url=qdrant_url,
+            qdrant_url=None,
             collection_name=collection_name,
             embedding_model=embedding_model
         )
+        # Manually override to use local path in searcher
+        searcher.client = QdrantClient(path="./qdrant_db")
         
         # Perform search (used for both modes)
         results = searcher.search(
@@ -473,8 +475,8 @@ def main():
     """Launch the Gradio interface."""
     demo = create_interface()
     demo.launch(
-        server_name="0.0.0.0",
-        server_port=7860,
+        server_name="127.0.0.1",
+        server_port=7861,
         share=False,
         show_error=True,
         favicon_path=None

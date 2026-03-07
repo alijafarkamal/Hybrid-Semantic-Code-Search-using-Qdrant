@@ -1,0 +1,275 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-bg: #0b0f1a;
+  --color-brand-sidebar: #111827;
+  --color-brand-card: #161e2e;
+  --color-brand-border: #1f2937;
+  --color-brand-accent: #1e40af;
+  /* New Deep Professional Blue */
+  --color-brand-accent-glow: rgba(30, 64, 175, 0.15);
+}
+
+:root {
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: dark;
+  background-color: #0b0f1a;
+  color: #f8fafc;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0b0f1a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1f2937;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #374151;
+}
+
+/* ─── Premium Select Dropdown ─── */
+.premium-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: rgba(10, 14, 23, 0.92);
+  border: 1px solid rgba(51, 65, 85, 0.45);
+  border-radius: 10px;
+  padding: 8px 34px 8px 13px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-tap-highlight-color: transparent;
+  width: 100%;
+  transition: border-color 0.22s ease, background 0.22s ease, color 0.22s ease;
+  letter-spacing: 0.04em;
+}
+
+.premium-select:hover {
+  border-color: rgba(100, 116, 139, 0.55);
+  color: #94a3b8;
+  background: rgba(15, 23, 42, 0.95);
+}
+
+.premium-select:focus,
+.premium-select:focus-visible,
+.premium-select:active {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #cbd5e1;
+  background: rgba(15, 23, 42, 0.98);
+}
+
+.premium-select option {
+  background: #0f172a;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+/* ─── Custom Dropdown Styles ─── */
+.premium-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: rgba(10, 14, 23, 0.95);
+  border: 1px solid rgba(51, 65, 85, 0.45);
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(12px);
+  position: relative;
+}
+
+.premium-select-trigger:hover {
+  background: rgba(15, 23, 42, 0.98);
+  border-color: rgba(100, 116, 139, 0.55);
+  color: #f8fafc;
+}
+
+.premium-select-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #111827;
+  border: 1px solid rgba(71, 85, 105, 0.5);
+  border-radius: 10px;
+  padding: 5px;
+  z-index: 1000;
+  /* Extremely high to ensure visibility */
+  box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(20px);
+}
+
+.premium-select-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.premium-select-item:hover {
+  background: rgba(59, 130, 246, 0.15);
+  color: #f8fafc;
+}
+
+.premium-select-item.active {
+  background: rgba(59, 130, 246, 0.25);
+  color: #60a5fa;
+  font-weight: 700;
+}
+
+/* ─── Premium Range Slider ─── */
+.premium-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  outline: none !important;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(51, 65, 85, 0.3);
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.premium-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #3b82f6;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 15px rgba(37, 99, 235, 0.4), 0 4px 8px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  margin-top: -1px;
+}
+
+.premium-range::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 20px rgba(37, 99, 235, 0.6), 0 6px 12px rgba(0, 0, 0, 0.5);
+}
+
+.premium-range::-webkit-slider-thumb:active {
+  transform: scale(0.95);
+  background: #f8fafc;
+}
+
+/* ─── Search Tuning Range Slider (Exact Match) ─── */
+.tuning-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: 9999px;
+  outline: none !important;
+  cursor: pointer;
+  width: 100%;
+}
+
+.tuning-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+}
+
+/* ─── Settings Specific Components ─── */
+.settings-card-gradient-blue {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.6) 100%);
+}
+
+.ratio-bar-segment {
+  position: relative;
+  transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ratio-bar-segment::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ─── Premium Hero Animations ─── */
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+
+  50% {
+    transform: translateY(-20px) rotate(5deg);
+  }
+}
+
+@keyframes pulse-slow {
+
+  0%,
+  100% {
+    opacity: 0.1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.15;
+    transform: scale(1.1);
+  }
+}
+
+.animate-float {
+  animation: float 8s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float 12s ease-in-out infinite;
+  animation-delay: -2s;
+}
+
+.bg-grid-white {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+
+.glass-morphism {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}

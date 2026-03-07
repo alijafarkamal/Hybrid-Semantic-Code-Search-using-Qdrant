@@ -1,0 +1,2083 @@
+import { useState, useEffect, useMemo, useRef } from 'react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  ScatterChart, Scatter, ZAxis, PieChart as RePie, Pie, Cell,
+  LineChart, Line, Legend
+} from 'recharts';
+
+const Icons = {
+  Dashboard: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>,
+  Search: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>,
+  Analytics: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" x2="12" y1="20" y2="10" /><line x1="18" x2="18" y1="20" y2="4" /><line x1="6" x2="6" y1="20" y2="16" /></svg>,
+  Ingestion: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4" /><polyline points="14 2 14 8 20 8" /><path d="M2 15h10" /><path d="m9 18 3-3-3-3" /></svg>,
+  Settings: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>,
+  ArrowLeft: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>,
+  Logo: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" /></svg>,
+  Code: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg>,
+  Folder: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>,
+  Globe: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="2" x2="22" y1="12" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>,
+  Clock: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
+  PieChart: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83" /><path d="M22 12A10 10 0 0 0 12 2v10z" /></svg>,
+  Database: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5V19A9 3 0 0 0 21 19V5" /><path d="M3 12A9 3 0 0 0 21 12" /></svg>,
+  Shield: ({ size = 24 }) => <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>,
+  Mail: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /><rect width="20" height="16" x="2" y="4" rx="2" /></svg>,
+  Lock: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>,
+  User: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>,
+  Close: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>,
+  Eye: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>,
+  EyeOff: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></svg>,
+  Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>,
+  AlertTriangle: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>,
+  Play: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3" /></svg>,
+  Refresh: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.83 6.72 2.24" /><polyline points="21 3 21 9 15 9" /></svg>,
+  Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
+}
+
+const CustomDropdown = ({ value, onChange, options, label }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div className="space-y-2 min-w-[120px]" ref={dropdownRef}>
+      {label && <label className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">{label}</label>}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className="premium-select-trigger"
+        >
+          <span className="truncate">{value}</span>
+          <svg
+            className={`w-3.5 h-3.5 transition-transform duration-300 ${isOpen ? 'rotate-180 text-blue-400' : 'text-slate-500'}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {isOpen && (
+          <div className="premium-select-menu animate-in fade-in zoom-in-95 duration-200">
+            {options.map((option) => (
+              <div
+                key={option}
+                onClick={() => {
+                  onChange(option);
+                  setIsOpen(false);
+                }}
+                className={`premium-select-item ${value === option ? 'active' : ''}`}
+              >
+                {option}
+                {value === option && (
+                  <svg className="w-3.5 h-3.5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const SidebarItem = ({ icon, label, id, activeView, setView, collapsed }) => (
+  <button
+    onClick={() => setView(id)}
+    className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl transition-all duration-200 ${activeView === id
+      ? 'bg-blue-900/20 text-blue-200 border-l-4 border-blue-600 shadow-[inset_0_0_20px_rgba(30,64,175,0.05)]'
+      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 border-l-4 border-transparent'
+      } ${collapsed ? 'justify-center px-0' : ''}`}
+  >
+    <div className="w-5 h-5 flex items-center justify-center shrink-0">
+      {icon}
+    </div>
+    {!collapsed && <span className="text-sm font-medium tracking-wide truncate">{label}</span>}
+  </button>
+)
+
+const StatCard = ({ icon, label, value, trend, trendColor }) => (
+  <div className="bg-[#111827] border border-slate-800/50 rounded-2xl p-6 shadow-xl relative overflow-hidden group hover:border-blue-500/30 transition-all duration-300">
+    <div className="flex justify-between items-start mb-4">
+      <div className="w-10 h-10 rounded-xl bg-blue-900/20 flex items-center justify-center text-blue-300 text-xl border border-blue-800/30 group-hover:scale-110 transition-transform">
+        {icon}
+      </div>
+      {trend && (
+        <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${trendColor || 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+          {trend}
+        </span>
+      )}
+    </div>
+    <div className="space-y-1">
+      <h3 className="text-3xl font-bold text-white">{value}</h3>
+      <p className="text-slate-400 text-sm font-medium">{label}</p>
+    </div>
+    <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-500/5 blur-3xl rounded-full group-hover:bg-blue-500/10 transition-colors"></div>
+  </div>
+)
+
+const AuthPage = ({ onLogin }) => {
+  const [isLogin, setIsLogin] = useState(true)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      const url = isLogin ? 'http://127.0.0.1:8000/auth/login' : 'http://127.0.0.1:8000/auth/signup'
+      const payload = isLogin ? { email, password } : { email, password, name }
+
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+
+      const data = await resp.json()
+      if (resp.ok) {
+        onLogin(data.access_token, data.user_name)
+      } else {
+        setError(data.detail || 'Authentication failed')
+      }
+    } catch {
+      setError('Connection to server failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col h-screen bg-[#0b0f1a] overflow-hidden relative">
+      {/* Header */}
+      <header className="w-full z-50 bg-[#0b0f1a]/90 backdrop-blur-md border-b border-slate-800/50 pl-20 pr-8 py-3.5 flex items-center justify-between shrink-0">
+        {/* Brand */}
+        <div className="flex items-center gap-2.5">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-700 to-indigo-900 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-900/20">
+            <Icons.Shield size={22} />
+          </div>
+          <span className="text-white font-black text-xl tracking-tight">SCS <span className="text-blue-300">Pro</span></span>
+          <span className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 bg-slate-800/60 border border-slate-700/50 rounded px-2 py-1 ml-1">Search</span>
+        </div>
+
+        {/* Nav Actions */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsLogin(true)}
+            className={`text-sm font-semibold px-4 py-1.5 rounded-lg transition-all ${isLogin ? 'text-white' : 'text-slate-400 hover:text-white'}`}
+          >
+            Login
+          </button>
+          <button
+            onClick={() => setIsLogin(false)}
+            className="text-sm font-black px-5 py-1.5 bg-blue-800 hover:bg-blue-700 text-white rounded-lg transition-all shadow-lg shadow-blue-900/30 active:scale-95"
+          >
+            Get Started
+          </button>
+        </div>
+      </header>
+
+      {/* Main Auth Body */}
+      <div className="flex flex-1 md:flex-row overflow-hidden">
+        {/* Left Hero Side */}
+        <div className="hidden md:flex md:w-[55%] bg-[#0b0f1a] relative items-center justify-center p-12 overflow-hidden shadow-[20px_0_60px_rgba(0,0,0,0.4)]">
+          {/* Base Gradient Layers */}
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-950 via-blue-900 to-slate-950"></div>
+
+          {/* Subtle Grid Pattern */}
+          <div className="absolute inset-0 bg-grid-white opacity-20 [mask-image:radial-gradient(ellipse_at_center,black_70%,transparent_100%)]"></div>
+
+          {/* Animated Background Orbs */}
+          <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-blue-800 opacity-10 blur-[120px] rounded-full animate-pulse-slow"></div>
+          <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-900 opacity-10 blur-[100px] rounded-full animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
+
+          {/* Floating Decorative Elements */}
+          <div className="absolute top-20 left-20 text-blue-300/20 animate-float opacity-40 blur-[1px]">
+            <Icons.Code />
+          </div>
+          <div className="absolute bottom-24 right-32 text-indigo-900/20 animate-float-delayed opacity-40 blur-[1px]">
+            <Icons.Globe />
+          </div>
+
+          {/* S-Shape Divider Overlay */}
+          <div className="absolute top-0 right-0 h-full w-64 translate-x-1/2 z-20 pointer-events-none">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full fill-[#0b0f1a]">
+              <path d="M0,0 C80,25 20,75 0,100 L100,100 L100,0 Z" />
+            </svg>
+          </div>
+
+          <div className="relative z-30 space-y-12 flex flex-col items-center text-center max-w-lg animate-in fade-in slide-in-from-left-12 duration-1000">
+            {/* Enhanced Glass Logo Box */}
+            <div className="relative group">
+              <div className="absolute -inset-4 bg-blue-900/20 rounded-[40px] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+              <div className="w-32 h-32 glass-morphism rounded-[36px] flex items-center justify-center relative z-10 group-hover:scale-105 transition-all duration-500 border-white/10 group-hover:border-blue-700/30">
+                <div className="text-blue-300 group-hover:text-blue-200 transition-colors duration-500">
+                  <Icons.Shield size={72} />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <h1 className="text-7xl font-black tracking-tight text-white drop-shadow-2xl">
+                SCS <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-indigo-800 drop-shadow-none">Pro</span>
+              </h1>
+              <div className="space-y-3">
+                <p className="text-2xl text-slate-300 font-light leading-snug tracking-tight">
+                  <span className="text-white font-medium">Enterprise Codebase Search.</span>
+                </p>
+                <div className="h-1 w-12 bg-blue-700/50 mx-auto rounded-full"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Form Side */}
+        <div className="flex-1 flex items-center justify-center bg-[#0b0f1a] p-4 relative z-10">
+          <div className="w-full max-w-[340px] space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
+            <div className="bg-[#111827]/60 backdrop-blur-3xl rounded-[32px] p-6 shadow-[0_40px_100px_rgba(0,0,0,0.3)] border border-slate-800/40">
+              <div className="space-y-1 mb-6 text-center">
+                <h2 className="text-xl font-black text-white tracking-tight">
+                  {isLogin ? 'Welcome Back' : 'Get Started'}
+                </h2>
+                <p className="text-slate-500 text-[9px] font-bold uppercase tracking-[0.15em] opacity-80">
+                  {isLogin ? 'Secure access' : 'Join the elite'}
+                </p>
+              </div>
+
+              {error && (
+                <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-3 rounded-xl text-[12px] font-bold mb-6 text-center animate-bounce-short">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-3.5">
+                {!isLogin && (
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] uppercase font-black tracking-[0.1em] text-slate-500 ml-1">Full Name</label>
+                    <div className="relative group">
+                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-700 transition-colors">
+                        <Icons.User size={16} />
+                      </div>
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="John Doe"
+                        className="w-full bg-slate-900/50 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 outline-none focus:border-blue-500/50 focus:bg-slate-900/80 transition-all text-white text-sm font-semibold placeholder:text-slate-700 shadow-inner"
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label className="text-[9px] uppercase font-black tracking-[0.1em] text-slate-500 ml-1">Email</label>
+                  <div className="relative group">
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-700 transition-colors">
+                      <Icons.Mail size={16} />
+                    </div>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="name@company.com"
+                      className="w-full bg-slate-900/50 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 outline-none focus:border-blue-500/50 focus:bg-slate-900/80 transition-all text-white text-sm font-semibold placeholder:text-slate-700 shadow-inner"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[9px] uppercase font-black tracking-[0.1em] text-slate-500 ml-1">Secure Key</label>
+                  <div className="relative group">
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-700 transition-colors">
+                      <Icons.Lock size={16} />
+                    </div>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-slate-900/50 border border-slate-800 rounded-xl py-2.5 pl-10 pr-12 outline-none focus:border-blue-500/50 focus:bg-slate-900/80 transition-all text-white text-sm font-semibold placeholder:text-slate-700 shadow-inner"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-blue-600 transition-colors"
+                    >
+                      {showPassword ? <Icons.EyeOff /> : <Icons.Eye />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-blue-800 hover:bg-blue-700 disabled:opacity-50 text-white font-black py-3 rounded-xl transition-all shadow-[0_10px_20px_rgba(30,64,175,0.2)] active:scale-[0.97] mt-4 text-xs uppercase tracking-[0.1em]"
+                >
+                  {loading ? (
+                    <div className="flex items-center justify-center gap-2 text-xs">
+                      <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                      <span>Validating...</span>
+                    </div>
+                  ) : (isLogin ? 'Login' : 'Sign up')}
+                </button>
+              </form>
+
+              <div className="mt-6 text-center border-t border-slate-800/60 pt-4">
+                <p className="text-slate-500 text-[11px] font-bold">
+                  {isLogin ? "New to SCS?" : "Already established?"}{' '}
+                  <button
+                    onClick={() => setIsLogin(!isLogin)}
+                    className="text-blue-300 font-black hover:text-blue-200 transition-colors uppercase tracking-tight ml-1"
+                  >
+                    {isLogin ? 'Sign up' : 'Login'}
+                  </button>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const RepoRow = ({ repo }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div
+      onClick={() => setIsExpanded(!isExpanded)}
+      className="flex items-center justify-between p-4 rounded-xl hover:bg-slate-800/40 border border-transparent hover:border-slate-800/80 transition-all cursor-pointer group gap-4"
+    >
+      <div className="flex items-center gap-3.5 min-w-0 flex-1">
+        <span className="text-slate-600 group-hover:text-blue-500 transition-colors flex-shrink-0">
+          <Icons.Folder />
+        </span>
+        <span
+          className={`font-semibold text-sm tracking-tight group-hover:text-blue-400 transition-colors ${isExpanded ? 'break-all' : 'truncate'}`}
+          title={!isExpanded ? repo.name : ''}
+        >
+          {repo.name}
+        </span>
+      </div>
+      <div className="flex items-center gap-5 flex-shrink-0">
+        <span className="text-[11px] font-mono text-slate-500 font-medium">{repo.points}</span>
+        <span
+          className="px-4 py-1 rounded-full border text-[10px] font-bold tracking-tight"
+          style={{
+            color: repo.color,
+            borderColor: `${repo.color}80`,
+            backgroundColor: `${repo.color}15`
+          }}
+        >
+          {repo.lang}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+// --- Custom Confirmation Modal ---
+const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, isDestructive, mode = "confirm" }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+      <div
+        className="bg-[#111827] border border-slate-700 shadow-2xl rounded-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-300"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-6">
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-5 ${isDestructive ? 'bg-rose-500/10 text-rose-500' : 'bg-blue-500/10 text-blue-500'}`}>
+            {isDestructive ? <Icons.AlertTriangle /> : <Icons.Database />}
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
+          <p className="text-slate-400 text-sm leading-relaxed">{message}</p>
+        </div>
+        <div className="px-6 py-4 bg-[#0f172a] border-t border-slate-800/50 flex items-center justify-end gap-3">
+          {mode === "confirm" && (
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+          )}
+          <button
+            onClick={() => {
+              onConfirm();
+              onClose();
+            }}
+            className={`px-5 py-2 text-sm font-semibold rounded-lg shadow-sm transition-all focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#111827] ${isDestructive
+              ? 'bg-rose-600 hover:bg-rose-500 text-white focus:ring-rose-500'
+              : 'bg-blue-600 hover:bg-blue-500 text-white focus:ring-blue-500'
+              }`}
+          >
+            {mode === "alert" ? "OK" : (isDestructive ? "Yes, Delete" : "Confirm")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const useConfirm = () => {
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    isDestructive: false,
+    mode: 'confirm',
+    resolve: null
+  });
+
+  const requestConfirm = (title, message, isDestructive = false) => {
+    return new Promise((resolve) => {
+      setModalConfig({
+        isOpen: true,
+        title,
+        message,
+        isDestructive,
+        mode: 'confirm',
+        resolve
+      });
+    });
+  };
+
+  const requestAlert = (title, message, isDestructive = false) => {
+    return new Promise((resolve) => {
+      setModalConfig({
+        isOpen: true,
+        title,
+        message,
+        isDestructive,
+        mode: 'alert',
+        resolve
+      });
+    });
+  };
+
+  const handleClose = () => {
+    if (modalConfig.resolve) modalConfig.resolve(false);
+    setModalConfig({ ...modalConfig, isOpen: false });
+  };
+
+  const handleConfirm = () => {
+    if (modalConfig.resolve) modalConfig.resolve(true);
+    setModalConfig({ ...modalConfig, isOpen: false });
+  };
+
+  return {
+    modalConfig,
+    requestConfirm,
+    requestAlert,
+    handleClose,
+    handleConfirm
+  };
+};
+
+const App = () => {
+  const { modalConfig, requestConfirm, requestAlert, handleClose, handleConfirm } = useConfirm();
+
+  const [token, setToken] = useState(sessionStorage.getItem('scs_token'))
+  const [username, setUsername] = useState(sessionStorage.getItem('scs_user'))
+  const [activeView, setActiveView] = useState('dashboard')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+  const [isEditingProfile, setIsEditingProfile] = useState(false)
+  const [profileData, setProfileData] = useState({ name: '', email: '', role: 'User' })
+  const [profileUpdateLoading, setProfileUpdateLoading] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+
+  // Ingestion State
+  const [ingestionHistory, setIngestionHistory] = useState([]);
+  const [ingestPath, setIngestPath] = useState('');
+  const [ingestRepoName, setIngestRepoName] = useState('');
+  const [ingestExcludes, setIngestExcludes] = useState(['.git', 'node_modules', '__pycache__', '.venv', 'venv']);
+  const [newExclude, setNewExclude] = useState('');
+  const [isIngesting, setIsIngesting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isClearingHistory, setIsClearingHistory] = useState(false);
+
+  // Fetch ingestion history
+  const fetchIngestionHistory = async () => {
+    setIsRefreshing(true);
+    try {
+      const response = await authFetch('http://localhost:8000/ingestion-history');
+      if (response.ok) {
+        const data = await response.json();
+        setIngestionHistory(data);
+      }
+    } catch (err) {
+      console.error("Error fetching ingestion history:", err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleClearHistory = async () => {
+    const isConfirmed = await requestConfirm(
+      "Clear Ingestion History",
+      "Are you sure you want to clear all ingestion history? This action cannot be undone.",
+      true
+    );
+    if (!isConfirmed) return;
+
+    setIsClearingHistory(true);
+    try {
+      const response = await authFetch('http://localhost:8000/ingestion-history', {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        fetchIngestionHistory();
+      } else {
+        requestAlert("Error", "Failed to clear history.", true);
+      }
+    } catch (err) {
+      console.error("Error clearing history:", err);
+      requestAlert("Error", "Error clearing history.", true);
+    } finally {
+      setIsClearingHistory(false);
+    }
+  };
+
+  const handleStartIngestion = async (e) => {
+    e.preventDefault();
+    if (!ingestPath) return;
+
+    setIsIngesting(true);
+    try {
+      const response = await authFetch('http://localhost:8000/ingest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          directory_path: ingestPath,
+          repo_name: ingestRepoName || null,
+          exclude_dirs: ingestExcludes
+        })
+      });
+
+      if (response.ok) {
+        setIngestPath('');
+        setIngestRepoName('');
+        fetchIngestionHistory();
+        requestAlert("Ingestion Started", "The repository is being ingested in the background.");
+      } else {
+        const error = await response.json();
+        requestAlert("Ingestion Error", `Error: ${error.detail}`, true);
+      }
+    } catch (err) {
+      console.error(err);
+      requestAlert("Ingestion Failed", "Failed to start ingestion process.", true);
+    } finally {
+      setIsIngesting(false);
+    }
+  };
+
+  const removeExclude = (tag) => {
+    setIngestExcludes(ingestExcludes.filter(t => t !== tag));
+  };
+
+  useEffect(() => {
+    if (activeView === 'ingestion') {
+      fetchIngestionHistory();
+      const interval = setInterval(fetchIngestionHistory, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [activeView]);
+
+  const resultsRef = useRef(null)
+  const profileMenuRef = useRef(null)
+
+  // Close profile menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+        setProfileMenuOpen(false)
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Auth Functions
+  const logout = () => {
+    sessionStorage.removeItem('scs_token')
+    sessionStorage.removeItem('scs_user')
+    setToken(null)
+    setUsername(null)
+  }
+
+  const login = (newToken, newUser) => {
+    sessionStorage.setItem('scs_token', newToken)
+    sessionStorage.setItem('scs_user', newUser)
+    setToken(newToken)
+    setUsername(newUser)
+  }
+
+  // Wrapper for fetch with auth
+  const authFetch = async (url, options = {}) => {
+    const headers = {
+      ...options.headers,
+      'Authorization': `Bearer ${token}`
+    }
+    const resp = await fetch(url, { ...options, headers })
+    if (resp.status === 401) {
+      logout()
+    }
+    return resp
+  }
+
+  // Search State
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [searchTime, setSearchTime] = useState(0)
+  const [expandedIndex, setExpandedIndex] = useState(null)
+  const [plan, setPlan] = useState(null)
+
+  // Advanced Filter State
+  const [showFilters, setShowFilters] = useState(true)
+  const [language, setLanguage] = useState('All')
+  const [repo, setRepo] = useState('All')
+  const [minScore, setMinScore] = useState(0.0)
+  const [chunkTypes, setChunkTypes] = useState(['Functions', 'Classes', 'Blocks'])
+  const [sortBy, setSortBy] = useState('relevance')
+  const [limit, setLimit] = useState(10)
+
+  // Search History State
+  const [searchHistory, setSearchHistory] = useState([
+    'authentication middleware',
+    'database query builder',
+    'error handling patterns'
+  ])
+
+  // Settings State
+  const [qdrantUrl, setQdrantUrl] = useState('http://localhost:6333')
+  const [collectionName, setCollectionName] = useState('code_search')
+  const [isTestingConnection, setIsTestingConnection] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState(null) // null, 'success', 'error'
+  const [embeddingModel, setEmbeddingModel] = useState('BAAI/bge-small-en-v1.5')
+  const [semanticWeight, setSemanticWeight] = useState(0.7)
+  const [overfetchMultiplier, setOverfetchMultiplier] = useState(5)
+
+  // Stats State
+  const [stats, setStats] = useState({
+    points: '...',
+    repos: '...',
+    languages: '...',
+    latency: '...',
+    pointsTrend: null,
+    langData: [],
+    repoList: []
+  })
+
+  // Analytics State
+  const [analyticsData, setAnalyticsData] = useState({
+    scoreDistribution: [],
+    correlation: [],
+    symbols: [],
+    languages: [],
+    performance: []
+  })
+  const prevPointsRef = useRef(null)
+
+  // Reactive Results Filtering
+  // Simplified as the backend now handles specific filtering;
+  // keeping the hook structure in case global frontend-only post-processing is needed later.
+  const displayedResults = useMemo(() => {
+    return results;
+  }, [results]);
+
+  useEffect(() => {
+    const fetchInfo = async () => {
+      if (!token) return
+      const startTime = performance.now()
+      try {
+        const resp = await authFetch('http://127.0.0.1:8000/info')
+        if (resp.ok) {
+          const data = await resp.json()
+          const infoLatency = ((performance.now() - startTime) / 1000).toFixed(2)
+          const langConfig = {
+            'python': { color: 'from-blue-500 to-indigo-500', display: 'Python', hex: '#3b82f6' },
+            'javascript': { color: 'from-yellow-400 to-yellow-500', display: 'JavaScript', hex: '#facc15' },
+            'typescript': { color: 'from-blue-400 to-sky-400', display: 'TypeScript', hex: '#38bdf8' },
+            'java': { color: 'from-orange-600 to-red-500', display: 'Java', hex: '#ea580c' },
+            'c++': { color: 'from-pink-500 to-rose-500', display: 'C++', hex: '#f43f5e' },
+            'go': { color: 'from-teal-400 to-cyan-400', display: 'Go', hex: '#14b8a6' },
+            'rust': { color: 'from-orange-700 to-red-600', display: 'Rust', hex: '#c2410c' },
+            'markdown': { color: 'from-slate-400 to-slate-200', display: 'Markdown', hex: '#94a3b8' }
+          }
+
+          const lData = Object.entries(data.languages || {}).map(([name, count]) => {
+            const key = name.toLowerCase();
+            const config = langConfig[key] || { color: 'from-emerald-500 to-indigo-500', display: name, hex: '#10b981' };
+            return {
+              name: config.display,
+              count: count.toLocaleString(),
+              pct: (count / data.points_count) * 100,
+              gradient: config.color
+            }
+          }).sort((a, b) => b.pct - a.pct)
+
+          // Calculate dynamic trend
+          let trend = null
+          if (prevPointsRef.current !== null && data.points_count > prevPointsRef.current) {
+            trend = `+${data.points_count - prevPointsRef.current} new`
+          } else if (prevPointsRef.current === null) {
+            trend = "Live"
+          }
+          prevPointsRef.current = data.points_count
+
+          setStats({
+            points: data.points_count.toLocaleString(),
+            repos: data.repo_count.toString(),
+            languages: Object.keys(data.languages || {}).length.toString(),
+            latency: `${infoLatency}s`,
+            pointsTrend: trend,
+            langData: lData,
+            repoList: (data.repos || []).map(r => {
+              const key = r.primary_language?.toLowerCase();
+              const config = langConfig[key] || { color: 'from-emerald-500 to-indigo-500', display: r.primary_language, hex: '#10b981' };
+              return {
+                name: r.name,
+                points: `${r.points_count.toLocaleString()}`,
+                lang: config.display,
+                color: config.hex
+              };
+            })
+          })
+        }
+      } catch {
+        console.error('Info fetch failed')
+      }
+    }
+
+    fetchInfo()
+    const interval = setInterval(fetchInfo, 5000)
+    return () => clearInterval(interval)
+  }, [token])
+
+  const handleSearch = async (e, forcedQuery = null) => {
+    if (e) e.preventDefault()
+    const finalQuery = forcedQuery || query
+    if (!finalQuery) return
+
+    setLoading(true)
+    const startTime = performance.now()
+    setPlan(null)
+    setResults([])
+    setExpandedIndex(null)
+
+    // Update Search History
+    setSearchHistory(prev => {
+      const filtered = prev.filter(h => h !== finalQuery)
+      return [finalQuery, ...filtered].slice(0, 6)
+    })
+
+    try {
+      const response = await authFetch('http://127.0.0.1:8000/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: finalQuery,
+          limit,
+          language: language === 'All' ? null : language,
+          repo: repo === 'All' ? null : repo,
+          chunk_types: chunkTypes.map(t => {
+            const map = { 'Functions': 'function', 'Classes': 'class', 'Blocks': 'block' };
+            return map[t] || t.toLowerCase();
+          }),
+          min_score: minScore,
+          sort_by: sortBy,
+          semantic_weight: semanticWeight,
+          mode: 'search'
+        }),
+      })
+      const data = await response.json()
+      const searchLatency = performance.now() - startTime
+      const resultsData = data.results || []
+
+      setResults(resultsData)
+      setSearchTime((searchLatency / 1000).toFixed(2))
+
+      // Update Analytics Data
+      if (resultsData.length > 0) {
+        // 1. Score Distribution (Buckets of 0.1)
+        const buckets = Array(10).fill(0).map((_, i) => ({ range: `${(i / 10).toFixed(1)}-${((i + 1) / 10).toFixed(1)}`, count: 0 }))
+        resultsData.forEach(r => {
+          const idx = Math.min(Math.floor(r.score * 10), 9)
+          buckets[idx].count++
+        })
+
+        // 2. Correlation (Semantic vs Lexical)
+        const corr = resultsData.map(r => ({
+          semantic: r.semantic_score || 0,
+          lexical: r.lexical_score || 0,
+          name: r.symbol_name || 'block'
+        }))
+
+        // 3. Symbol Frequency
+        const symMap = {}
+        resultsData.forEach(r => {
+          const key = r.symbol_name || 'unknown'
+          if (!symMap[key]) symMap[key] = { name: key, type: r.symbol_type || 'block', file: r.file_path, count: 0 }
+          symMap[key].count++
+        })
+        const topSymbols = Object.values(symMap).sort((a, b) => b.count - a.count).slice(0, 6)
+
+        // 4. Languages
+        const langMap = {}
+        resultsData.forEach(r => {
+          const key = r.language || 'Other'
+          langMap[key] = (langMap[key] || 0) + 1
+        })
+        const langData = Object.entries(langMap).map(([name, value]) => ({ name, value }))
+
+        setAnalyticsData(prev => ({
+          scoreDistribution: buckets,
+          correlation: corr,
+          symbols: topSymbols,
+          languages: langData,
+          performance: [...prev.performance.map(p => ({ ...p, index: p.index })), { // Ensure index is sequential
+            index: prev.performance.length > 0 ? Math.max(...prev.performance.map(p => p.index)) + 1 : 1,
+            time: Math.round(searchLatency),
+            avg: Math.round([...prev.performance.map(p => p.time), searchLatency].reduce((a, b) => a + b, 0) / (prev.performance.length + 1))
+          }].slice(-20)
+        }))
+      }
+
+      // Smooth scroll to results
+      setTimeout(() => {
+        resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const toggleChunkType = (type) => {
+    setChunkTypes(prev =>
+      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+    )
+  }
+
+  const handleTestConnection = async () => {
+    setIsTestingConnection(true)
+    setConnectionStatus(null)
+    // Simulate API call
+    setTimeout(() => {
+      setIsTestingConnection(false)
+      setConnectionStatus('success')
+    }, 1500)
+  }
+
+  const handleResetSettings = async () => {
+    const isConfirmed = await requestConfirm(
+      "Reset Settings",
+      "Are you sure you want to reset all settings to their defaults?",
+      true
+    );
+    if (isConfirmed) {
+      setSemanticWeight(0.7)
+      setOverfetchMultiplier(5)
+      setEmbeddingModel('BAAI/bge-small-en-v1.5')
+    }
+  }
+
+  const handleDeleteCollection = async () => {
+    const isConfirmed = await requestConfirm(
+      "Delete Collection",
+      "CRITICAL: This will permanently delete the collection and all its vectorized data. Are you absolutely sure you want to continue?",
+      true
+    );
+    if (isConfirmed) {
+      requestAlert("Collection Deleted", "The collection has been successfully deleted. (Simulated)")
+    }
+  }
+
+  const fetchProfile = async () => {
+    try {
+      const resp = await authFetch('http://127.0.0.1:8000/auth/me')
+      if (resp.ok) {
+        const data = await resp.json()
+        setProfileData(data)
+      }
+    } catch {
+      console.error("Failed to fetch profile:")
+    }
+  }
+
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault()
+    setProfileUpdateLoading(true)
+    try {
+      const payload = {
+        name: profileData.name,
+        email: profileData.email
+      }
+      if (newPassword) payload.password = newPassword
+
+      const resp = await authFetch('http://127.0.0.1:8000/auth/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+
+      if (resp.ok) {
+        const data = await resp.json()
+        setProfileData(data)
+        setUsername(data.name)
+        sessionStorage.setItem('scs_user', data.name)
+        setIsEditingProfile(false)
+        setNewPassword('')
+        requestAlert("Profile Updated", "Your profile details have been saved successfully.");
+      } else {
+        const errorData = await resp.json()
+        requestAlert("Update Failed", errorData.detail || "Update failed", true)
+      }
+    } catch {
+      requestAlert("Update Failed", "An error occurred during update", true)
+    } finally {
+      setProfileUpdateLoading(false)
+    }
+  }
+
+  const openProfileModal = () => {
+    setProfileMenuOpen(false)
+    fetchProfile()
+    setIsProfileModalOpen(true)
+    setIsEditingProfile(false)
+  }
+
+  if (!token) {
+    return (
+      <>
+        <AuthPage onLogin={login} />
+        <ConfirmationModal
+          isOpen={modalConfig.isOpen}
+          onClose={handleClose}
+          onConfirm={handleConfirm}
+          title={modalConfig.title}
+          message={modalConfig.message}
+          isDestructive={modalConfig.isDestructive}
+          mode={modalConfig.mode}
+        />
+      </>
+    );
+  }
+
+  return (
+    <div className="flex h-screen bg-[#0b0f1a] text-slate-200 font-sans overflow-hidden">
+      <ConfirmationModal
+        isOpen={modalConfig.isOpen}
+        onClose={handleClose}
+        onConfirm={handleConfirm}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        isDestructive={modalConfig.isDestructive}
+        mode={modalConfig.mode}
+      />
+
+      {/* Sidebar */}
+      <aside className={`${sidebarCollapsed ? 'w-16' : 'w-52'} border-r border-slate-800/50 flex flex-col p-3 bg-[#0a0e17] shrink-0 transition-all duration-300 ease-in-out`}>
+        <div className={`flex items-center mb-2 group cursor-pointer overflow-hidden whitespace-nowrap py-3 ${sidebarCollapsed ? 'justify-center' : 'gap-2.5 px-1.5'}`}>
+          <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-lg flex items-center justify-center text-white shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-transform shrink-0">
+            <Icons.Logo />
+          </div>
+          {!sidebarCollapsed && <span className="text-lg font-bold tracking-tight text-white transition-colors uppercase italic underline decoration-blue-500/50 underline-offset-4">SCS</span>}
+        </div>
+
+        <nav className="flex-1 space-y-1">
+          <SidebarItem id="dashboard" label="Dashboard" icon={<Icons.Dashboard />} activeView={activeView} setView={setActiveView} collapsed={sidebarCollapsed} />
+          <SidebarItem id="search" label="Search" icon={<Icons.Search />} activeView={activeView} setView={setActiveView} collapsed={sidebarCollapsed} />
+          <SidebarItem id="analytics" label="Analytics" icon={<Icons.Analytics />} activeView={activeView} setView={setActiveView} collapsed={sidebarCollapsed} />
+          <SidebarItem id="ingestion" label="Ingestion" icon={<Icons.Ingestion />} activeView={activeView} setView={setActiveView} collapsed={sidebarCollapsed} />
+          <SidebarItem id="settings" label="Settings" icon={<Icons.Settings />} activeView={activeView} setView={setActiveView} collapsed={sidebarCollapsed} />
+        </nav>
+
+        <div className="mt-auto p-2 border-t border-slate-800/50">
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="w-full flex items-center justify-center px-4 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200"
+          >
+            <div className={`transition-transform duration-300 ${sidebarCollapsed ? 'rotate-180' : ''}`}>
+              <Icons.ArrowLeft />
+            </div>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto scroll-smooth">
+        {/* Top Header */}
+        <header className="sticky top-0 z-30 bg-[#0b0f1a]/80 backdrop-blur-md border-b border-slate-800/50 px-8 py-4 flex justify-between items-center">
+          <h2 className="text-xl font-bold text-white">
+            {activeView === 'dashboard' ? 'Dashboard' :
+              activeView === 'search' ? 'Code Search' :
+                activeView === 'analytics' ? 'Analytics' :
+                  activeView === 'ingestion' ? 'Ingestion' : 'Settings'}
+          </h2>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_#10b981]"></span>
+              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Qdrant Connected</span>
+            </div>
+
+            <div className="flex items-center gap-3 pl-4 border-l border-slate-800/50 relative" ref={profileMenuRef}>
+              <div className="flex flex-col items-end">
+                <span className="text-[11px] font-bold text-white uppercase tracking-wider">{username}</span>
+                <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">User</span>
+              </div>
+              <div
+                onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+                className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center cursor-pointer hover:border-blue-500 transition-colors overflow-hidden"
+              >
+                <div className="text-blue-400 group-hover:scale-110 transition-transform duration-300">
+                  <Icons.User />
+                </div>
+              </div>
+
+              {/* Profile Dropdown Menu */}
+              {profileMenuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-48 bg-[#111827] border border-slate-800 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="px-4 py-3 border-b border-slate-800 mb-1">
+                    <p className="text-xs font-bold text-white uppercase">{username}</p>
+                    <p className="text-[9px] text-slate-500 uppercase tracking-tighter mt-0.5">SCS User</p>
+                  </div>
+
+                  <button
+                    onClick={openProfileModal}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all text-left"
+                  >
+                    <span className="text-blue-400"><Icons.Settings /></span>
+                    Edit Profile
+                  </button>
+
+                  <div className="h-px bg-slate-800 my-1 mx-2"></div>
+
+                  <button
+                    onClick={() => { setProfileMenuOpen(false); logout(); }}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-xs font-semibold text-slate-400 hover:text-rose-400 hover:bg-rose-400/5 transition-all text-left"
+                  >
+                    <span className="text-rose-500/80">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" x2="9" y1="12" y2="12" /></svg>
+                    </span>
+                    Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        <div className="p-8 max-w-7xl mx-auto">
+
+          {/* Search View */}
+          {activeView === 'search' && (
+            <div className="space-y-8 animate-in fade-in duration-500">
+
+              {/* Search Bar & Chips */}
+              <div className="space-y-4">
+                <form onSubmit={handleSearch} className="relative group max-w-5xl mx-auto flex gap-3">
+                  <div className="relative flex-1">
+                    <div className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 text-xl font-light">🔍</div>
+                    <input
+                      type="text"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="WebSocket connection"
+                      className="w-full bg-[#111827] border border-slate-800 focus:border-blue-500/50 rounded-2xl py-4 pl-16 pr-8 text-lg outline-none transition-all shadow-2xl"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 rounded-2xl transition-all shadow-lg shadow-blue-500/20 active:scale-95 flex items-center gap-2"
+                  >
+                    <span>Search</span>
+                  </button>
+                </form>
+
+                <div className="flex flex-wrap gap-2 justify-center max-w-5xl mx-auto">
+                  {searchHistory.map((s, idx) => (
+                    <button
+                      key={`${s}-${idx}`}
+                      onClick={() => { setQuery(s); handleSearch(null, s); }}
+                      className="px-4 py-1.5 bg-[#161e2e]/50 border border-slate-800/50 rounded-full text-[10px] text-slate-500 hover:text-blue-400 hover:border-blue-500/30 transition-all flex items-center gap-2 group"
+                    >
+                      <span className="opacity-0 group-hover:opacity-100 transition-opacity">↺</span>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Advanced Filters */}
+              <div className="bg-[#111827]/50 border border-slate-800 rounded-2xl max-w-5xl mx-auto transition-all shadow-xl relative">
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`w-full p-4 flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest hover:text-slate-300 transition-colors bg-[#111827] rounded-t-2xl ${!showFilters ? 'rounded-b-2xl' : ''}`}
+                >
+                  <span className={`transition-transform duration-300 ${showFilters ? 'rotate-180' : 'rotate-90'}`}>⌵</span>
+                  Advanced Filters
+                </button>
+
+                {showFilters && (
+                  <div className="px-6 py-5 animate-in fade-in slide-in-from-top-2 duration-300 border-t border-slate-800/50 rounded-b-2xl">
+                    <div className="flex flex-wrap items-start gap-8">
+
+                      {/* Language */}
+                      <CustomDropdown
+                        label="Language"
+                        value={language}
+                        onChange={(val) => setLanguage(val)}
+                        options={['All', 'Python', 'JavaScript', 'TypeScript', 'Markdown']}
+                      />
+
+                      {/* Repository */}
+                      <CustomDropdown
+                        label="Repository"
+                        value={repo}
+                        onChange={(val) => setRepo(val)}
+                        options={['All', ...stats.repoList.map(r => r.name)]}
+                      />
+
+                      {/* Min Score Slider */}
+                      <div className="space-y-2 min-w-[130px] flex-1 max-w-[200px]">
+                        <div className="flex justify-between">
+                          <label className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Min Score</label>
+                          <span className="text-[10px] font-mono text-blue-400">{(minScore * 100).toFixed(0)}%</span>
+                        </div>
+                        <input
+                          type="range" min="0" max="1" step="0.05"
+                          value={minScore} onChange={(e) => setMinScore(parseFloat(e.target.value))}
+                          className="w-full premium-range"
+                          style={{
+                            background: `linear-gradient(to right, #06b6d4 0%, #14b8a6 ${minScore * 100}%, rgba(30, 41, 59, 0.5) ${minScore * 100}%, rgba(30, 41, 59, 0.5) 100%)`
+                          }}
+                        />
+                      </div>
+
+                      {/* Divider */}
+                      <div className="w-px bg-slate-800 self-stretch hidden md:block"></div>
+
+                      {/* Chunk Type */}
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Chunk Type</label>
+                        <div className="flex flex-col gap-1.5">
+                          {['Functions', 'Classes', 'Blocks'].map(type => (
+                            <label key={type} className="flex items-center gap-2 cursor-pointer group">
+                              <input
+                                type="checkbox"
+                                checked={chunkTypes.includes(type)}
+                                onChange={() => toggleChunkType(type)}
+                                className="accent-blue-500 w-3.5 h-3.5 rounded cursor-pointer"
+                              />
+                              <span className={`text-xs font-medium transition-colors ${chunkTypes.includes(type) ? 'text-slate-200' : 'text-slate-500'} group-hover:text-slate-300`}>{type}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Sort By */}
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Sort By</label>
+                        <div className="flex flex-col gap-1.5">
+                          {['Relevance', 'Semantic', 'Lexical'].map(mode => (
+                            <label key={mode} className="flex items-center gap-2 cursor-pointer group">
+                              <input
+                                type="radio"
+                                name="sortBy"
+                                checked={sortBy === mode.toLowerCase()}
+                                onChange={() => setSortBy(mode.toLowerCase())}
+                                className="accent-blue-500 w-3.5 h-3.5 cursor-pointer"
+                              />
+                              <span className={`text-xs font-medium transition-colors ${sortBy === mode.toLowerCase() ? 'text-slate-200' : 'text-slate-500'} group-hover:text-slate-300`}>{mode}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Divider */}
+                      <div className="w-px bg-slate-800 self-stretch hidden md:block"></div>
+
+                      {/* Results Limit */}
+                      <div className="space-y-2 min-w-[130px] flex-1 max-w-[200px]">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Results Limit</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={limit}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value);
+                              if (!isNaN(val) && val > 0) setLimit(val);
+                            }}
+                            className="bg-[#0f172a] border border-slate-700 text-slate-300 text-[10px] font-mono px-2 py-0.5 rounded outline-none w-14 text-right focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all"
+                          />
+                        </div>
+                        <input
+                          type="range" min="1" max={Math.max(100, limit)}
+                          value={limit} onChange={(e) => setLimit(parseInt(e.target.value))}
+                          className="w-full premium-range"
+                          style={{
+                            background: `linear-gradient(to right, #06b6d4 0%, #14b8a6 ${(limit / Math.max(100, limit)) * 100}%, rgba(30, 41, 59, 0.5) ${(limit / Math.max(100, limit)) * 100}%, rgba(30, 41, 59, 0.5) 100%)`
+                          }}
+                        />
+                      </div>
+
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Status & Results */}
+              <div ref={resultsRef} className="max-w-5xl mx-auto space-y-6 scroll-mt-24">
+                {loading ? (
+                  <div className="flex flex-col items-center justify-center py-20 animate-pulse">
+                    <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+                    <p className="text-slate-500 text-sm font-medium">Searching {repo === 'All' ? 'codebase' : repo}...</p>
+                  </div>
+                ) : (
+                  <>
+                    {displayedResults.length > 0 ? (
+                      <>
+                        <div className="text-xs font-medium text-slate-500 flex items-center gap-2 animate-in fade-in slide-in-from-left-4 duration-500">
+                          Found <span className="text-white font-bold">{displayedResults.length}</span> results in <span className="text-white font-bold">{searchTime}s</span>
+                        </div>
+
+                        <div className="space-y-4">
+                          {displayedResults.map((res, i) => (
+                            <div key={i}
+                              className="bg-[#111827]/40 border border-slate-800/60 rounded-2xl overflow-hidden hover:border-slate-700/80 transition-all shadow-xl group animate-in fade-in slide-in-from-bottom-4 duration-500"
+                              style={{ animationDelay: `${i * 50}ms` }}
+                            >
+                              <div className="p-6">
+                                <div className="flex justify-between items-start mb-6">
+                                  <h4 className="font-bold text-slate-100 group-hover:text-blue-400 transition-colors">{res.file_path}</h4>
+                                  <div className="text-right">
+                                    <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-3 py-1 rounded-lg text-[10px] font-bold flex items-center justify-center">
+                                      Score: {(res.score * 100).toFixed(2)}%
+                                    </div>
+                                    <div className="text-[9px] text-slate-500 mt-1 uppercase font-mono">
+                                      semantic: {(res.semantic_score * 100).toFixed(1)}% | lexical: {(res.lexical_score * 100).toFixed(1)}%
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-wrap gap-2 mb-6">
+                                  <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded text-[10px] font-bold">{res.language}</span>
+                                  <span className="bg-yellow-500/10 text-yellow-500/80 border border-yellow-500/20 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">📁 {res.repo_name}</span>
+                                  <span className="bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">📍 Lines {res.start_line}-{res.end_line}</span>
+                                  <span className="bg-slate-800 text-slate-400 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">🛠 {res.chunk_type}</span>
+                                  {res.symbol_name && <span className="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">⚡ {res.symbol_name}</span>}
+                                </div>
+
+                                {res.signature && (
+                                  <div className="mb-4 text-sm font-mono text-blue-400 opacity-90">
+                                    {res.signature}
+                                  </div>
+                                )}
+
+                                <div className="mb-6 text-sm text-slate-400 leading-relaxed italic">
+                                  {res.docstring || "No description available for this code block."}
+                                </div>
+
+                                <button
+                                  onClick={() => setExpandedIndex(expandedIndex === i ? null : i)}
+                                  className="text-[11px] font-bold text-blue-500 flex items-center gap-1 hover:text-blue-400 transition-colors uppercase tracking-widest"
+                                >
+                                  {expandedIndex === i ? '⌄ Hide Code' : '⌵ View Code'}
+                                </button>
+                              </div>
+
+                              {expandedIndex === i && (
+                                <div className="border-t border-slate-800/80 bg-black/40 p-6">
+                                  <pre className="font-mono text-xs leading-relaxed text-slate-300 overflow-x-auto">
+                                    <code>{res.code_snippet}</code>
+                                  </pre>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    ) : !loading && query && (
+                      <div className="flex flex-col items-center justify-center py-20 border border-dashed border-slate-800 rounded-2xl bg-[#111827]/20 animate-in zoom-in-95 duration-500">
+                        <div className="text-4xl mb-4 opacity-50 text-slate-500">📂</div>
+                        <h4 className="text-slate-300 font-bold mb-1">No results found</h4>
+                        <p className="text-slate-500 text-sm">Try adjusting your filters or search query</p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Dashboard View */}
+          {activeView === 'dashboard' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatCard icon={<Icons.Code />} label="Indexed points" value={stats.points} trend={stats.pointsTrend} />
+                <StatCard icon={<Icons.Folder />} label="Active repos" value={stats.repos} />
+                <StatCard icon={<Icons.Globe />} label="Supported languages" value={stats.languages} />
+                <StatCard icon={<Icons.Clock />} label="System Latency" value={stats.latency} trend="Live" />
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 bg-[#111827] border border-slate-800/50 rounded-2xl p-8 shadow-xl">
+                  <div className="flex items-center gap-2.5 mb-8 text-blue-500">
+                    <Icons.PieChart />
+                    <h3 className="text-lg font-bold text-white tracking-tight">Language Distribution</h3>
+                  </div>
+                  <div className="space-y-7">
+                    {stats.langData.map((lang) => (
+                      <div key={lang.name} className="flex items-center gap-6 group">
+                        <span className="w-24 font-semibold text-slate-400 group-hover:text-slate-200 transition-colors text-[11px] tracking-wide">{lang.name}</span>
+                        <div className="flex-1 h-3 bg-slate-800/80 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full bg-gradient-to-r ${lang.gradient} rounded-full transition-all duration-1000 relative`}
+                            style={{
+                              width: `${lang.pct}%`
+                            }}
+                          ></div>
+                        </div>
+                        <span className="w-16 text-right font-mono text-slate-500 text-[11px] font-medium tracking-tight">{lang.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-[#111827] border border-slate-800/80 rounded-2xl p-8 shadow-2xl">
+                  <div className="flex items-center gap-2.5 mb-8 text-blue-500">
+                    <Icons.Database />
+                    <h3 className="text-lg font-bold text-white tracking-tight">Repositories</h3>
+                  </div>
+                  <div className="space-y-4">
+                    {stats.repoList.map((repo) => (
+                      <RepoRow key={repo.name} repo={repo} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Searches */}
+              <div className="bg-[#111827] border border-slate-800/50 rounded-2xl p-8 shadow-xl animate-in fade-in slide-in-from-bottom-6 duration-1000">
+                <div className="flex items-center gap-2 mb-6 text-blue-400">
+                  <Icons.Search />
+                  <h3 className="text-lg font-bold text-white">Recent Searches</h3>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {searchHistory.length > 0 ? searchHistory.map((s, idx) => (
+                    <button
+                      key={`${s}-${idx}`}
+                      onClick={() => { setQuery(s); setActiveView('search'); handleSearch(null, s); }}
+                      className="px-4 py-2 bg-[#161e2e] border border-slate-800 rounded-full text-xs text-slate-400 hover:text-white hover:border-slate-600 transition-all shadow-sm"
+                    >
+                      {s}
+                    </button>
+                  )) : (
+                    <p className="text-slate-500 text-xs italic">No searches yet</p>
+                  )}
+                </div>
+              </div>
+
+              {/* System Status Bar */}
+              <div className="mt-8 py-4 px-6 bg-[#0f172a]/50 border border-slate-800/50 rounded-2xl flex flex-wrap gap-8 items-center text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                  <span>Qdrant: <span className="text-slate-300 ml-1">Connected</span></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                  <span>Embedding Model: <span className="text-slate-300 ml-1">{embeddingModel}</span></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                  <span>Collection: <span className="text-slate-300 ml-1">{collectionName}</span></span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Analytics View */}
+          {activeView === 'ingestion' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+              {/* Ingest Form */}
+              <div className="bg-[#111827] border border-slate-800/80 rounded-[32px] p-6 shadow-2xl relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-[80px] rounded-full -mr-16 -mt-16"></div>
+
+                <h3 className="text-lg font-bold text-white mb-5 flex items-center gap-3">
+                  <span className="text-emerald-500"><Icons.Ingestion /></span>
+                  Ingest New Repository
+                </h3>
+
+                <form onSubmit={handleStartIngestion} className="space-y-4 relative z-10">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Directory Path</label>
+                      <input
+                        type="text"
+                        value={ingestPath}
+                        onChange={(e) => setIngestPath(e.target.value)}
+                        placeholder="/path/to/your/project"
+                        className="w-full bg-[#0b0f1a] border border-slate-800 focus:border-emerald-500/50 rounded-2xl py-2 px-5 text-sm outline-none transition-all"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Repository Name (Options)</label>
+                      <input
+                        type="text"
+                        value={ingestRepoName}
+                        onChange={(e) => setIngestRepoName(e.target.value)}
+                        placeholder="my-project"
+                        className="w-full bg-[#0b0f1a] border border-slate-800 focus:border-emerald-500/50 rounded-2xl py-2 px-5 text-sm outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Exclude Directories</label>
+                    <div className="flex flex-wrap gap-2 p-2 bg-[#0b0f1a] border border-slate-800 rounded-2xl min-h-[40px] focus-within:border-emerald-500/50 transition-all">
+                      {ingestExcludes.map(tag => (
+                        <span key={tag} className="flex items-center gap-1.5 bg-slate-800/50 text-slate-300 px-3 py-1 rounded-full text-[11px] font-bold border border-slate-700/50">
+                          {tag}
+                          <button type="button" onClick={() => removeExclude(tag)} className="text-slate-500 hover:text-rose-400 transition-colors">
+                            <Icons.Close size={14} />
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        type="text"
+                        value={newExclude}
+                        onChange={(e) => setNewExclude(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const tag = newExclude.trim();
+                            if (tag && !ingestExcludes.includes(tag)) {
+                              setIngestExcludes([...ingestExcludes, tag]);
+                            }
+                            setNewExclude('');
+                          }
+                        }}
+                        placeholder="Add..."
+                        className="flex-1 bg-transparent border-none outline-none py-1 px-3 text-sm text-slate-300 min-w-[100px]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={isIngesting || !ingestPath}
+                      className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black px-8 py-2.5 rounded-2xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95 flex items-center gap-3 text-sm uppercase tracking-widest"
+                    >
+                      {isIngesting ? (
+                        <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                      ) : (
+                        <Icons.Play />
+                      )}
+                      <span>{isIngesting ? 'Processing...' : 'Start Ingestion'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Ingestion History */}
+              <div className="bg-[#111827] border border-slate-800/80 rounded-[32px] p-8 shadow-2xl relative overflow-hidden">
+                <div className="flex justify-between items-center mb-8">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                    <span className="text-blue-500"><Icons.Clock /></span>
+                    Ingestion History
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={fetchIngestionHistory}
+                      disabled={isRefreshing || isClearingHistory}
+                      title="Refresh history"
+                      className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white disabled:opacity-50"
+                    >
+                      <span className={isRefreshing ? 'animate-spin inline-block' : 'inline-block'}>
+                        <Icons.Refresh />
+                      </span>
+                    </button>
+                    {ingestionHistory.length > 0 && (
+                      <button
+                        onClick={handleClearHistory}
+                        disabled={isClearingHistory || isRefreshing}
+                        title="Clear history"
+                        className="p-2 hover:bg-rose-500/10 rounded-full transition-colors text-slate-400 hover:text-rose-400 disabled:opacity-50"
+                      >
+                        <span className={isClearingHistory ? 'animate-pulse inline-block' : 'inline-block'}>
+                          <Icons.Trash />
+                        </span>
+                      </button>
+                    )}
+                  </div>
+
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-800/50">
+                        <th className="pb-4 px-2">Repo</th>
+                        <th className="pb-4 px-2">Directory</th>
+                        <th className="pb-4 px-2">Files</th>
+                        <th className="pb-4 px-2">Chunks</th>
+                        <th className="pb-4 px-2">Date</th>
+                        <th className="pb-4 px-2">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-sm">
+                      {ingestionHistory.map((record) => (
+                        <tr key={record.id} className="border-b border-slate-800/30 group hover:bg-slate-800/20 transition-colors">
+                          <td className="py-3 px-2 font-bold text-white">{record.repo_name}</td>
+                          <td className="py-3 px-2 text-slate-500 font-mono text-[11px] max-w-[200px] truncate">{record.directory_path}</td>
+                          <td className="py-3 px-2 text-slate-400 font-mono text-xs">{record.files_count || '--'}</td>
+                          <td className="py-3 px-2 text-slate-400 font-mono text-xs">{record.chunks_count || '--'}</td>
+                          <td className="py-3 px-2 text-slate-500 text-xs">{new Date(record.created_at).toLocaleDateString()}</td>
+                          <td className="py-3 px-2">
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1.5 w-fit ${record.status === 'Complete' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                              record.status === 'In Progress' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                                'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                              }`}>
+                              {record.status === 'Complete' ? <Icons.Check /> :
+                                record.status === 'In Progress' ? <span className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></span> :
+                                  <Icons.AlertTriangle />}
+                              {record.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                      {ingestionHistory.length === 0 && (
+                        <tr>
+                          <td colSpan="6" className="py-12 text-center text-slate-600 italic text-xs">No ingestion history found.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+          {activeView === 'analytics' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-12">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Score Distribution */}
+                <div className="bg-[#111827] border border-slate-800/80 rounded-[32px] p-8 shadow-2xl relative overflow-hidden group">
+                  <h3 className="text-lg font-bold text-white mb-8 flex items-center gap-3">
+                    <span className="text-blue-500 animate-pulse"><Icons.Analytics /></span>
+                    Score Distribution (Last Search)
+                  </h3>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-[80px] rounded-full -mr-16 -mt-16"></div>
+                  <div className="h-[220px] w-full min-h-[220px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={analyticsData.scoreDistribution}>
+                        <defs>
+                          <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#3b82f6" stopOpacity={1} />
+                            <stop offset="100%" stopColor="#2dd4bf" stopOpacity={1} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                        <XAxis dataKey="range" stroke="#475569" fontSize={10} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#475569" fontSize={10} tickLine={false} axisLine={false} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '16px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.4)' }}
+                          itemStyle={{ color: '#fff' }}
+                          labelStyle={{ color: '#94a3b8' }}
+                          cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                        />
+                        <Bar dataKey="count" fill="url(#barGradient)" radius={[6, 6, 0, 0]} animationDuration={1000} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Score Correlation */}
+                <div className="bg-[#111827] border border-slate-800/80 rounded-[32px] p-8 shadow-2xl relative overflow-hidden">
+                  <h3 className="text-lg font-bold text-white mb-8 flex items-center gap-3">
+                    <span className="text-purple-500 animate-pulse"><Icons.Shield /></span>
+                    Semantic vs Lexical Score Correlation
+                  </h3>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-[80px] rounded-full -mr-16 -mt-16"></div>
+                  <div className="h-[220px] w-full min-h-[220px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ScatterChart margin={{ top: 20, right: 30, bottom: 20, left: 10 }}>
+                        <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
+                        <XAxis
+                          type="number"
+                          dataKey="lexical"
+                          name="Lexical Score"
+                          stroke="#64748b"
+                          fontSize={10}
+                          domain={[0, 1]}
+                          tickCount={6}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis
+                          type="number"
+                          dataKey="semantic"
+                          name="Semantic Score"
+                          stroke="#64748b"
+                          fontSize={10}
+                          domain={[0, 1]}
+                          tickCount={6}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <ZAxis
+                          type="number"
+                          dataKey={(entry) => (entry.semantic + entry.lexical) * 100}
+                          range={[80, 500]}
+                          name="Combined Score"
+                        />
+                        <Tooltip
+                          cursor={{ strokeDasharray: '3 3', stroke: '#334155' }}
+                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)', padding: '12px' }}
+                          itemStyle={{ color: '#fff', fontWeight: 'bold' }}
+                          labelStyle={{ color: '#94a3b8', marginBottom: '8px', borderBottom: '1px solid #1e293b', paddingBottom: '4px' }}
+                        />
+                        <Scatter name="Matches" data={analyticsData.correlation} fillOpacity={0.8} animationDuration={1000}>
+                          {analyticsData.correlation.map((entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={['#3b82f6', '#10b981', '#f43f5e', '#a855f7', '#f59e0b', '#06b6d4'][index % 6]}
+                              stroke="rgba(255,255,255,0.2)"
+                              strokeWidth={2}
+                            />
+                          ))}
+                        </Scatter>
+                      </ScatterChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Most Frequent Symbols */}
+                <div className="bg-[#111827] border border-slate-800/80 rounded-[32px] p-8 shadow-2xl">
+                  <h3 className="text-lg font-bold text-white mb-8 flex items-center gap-3">
+                    <span className="text-emerald-500 animate-pulse"><Icons.Code /></span>
+                    Most Frequently Found Symbols
+                  </h3>
+                  <div className="overflow-hidden">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="text-[10px] font-black uppercase tracking-widest text-slate-500 border-b border-slate-800/50">
+                          <th className="pb-4"># Symbol</th>
+                          <th className="pb-4">Type</th>
+                          <th className="pb-4">File</th>
+                          <th className="pb-4 text-right">Count</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-sm">
+                        {analyticsData.symbols && analyticsData.symbols.map((sym, i) => (
+                          <tr key={`${sym.name}-${i}`} className="border-b border-slate-800/30 group hover:bg-slate-800/20 transition-colors">
+                            <td className="py-4 font-mono text-[13px] text-white flex items-center gap-3">
+                              <span className="text-slate-600 font-bold">{i + 1}</span>
+                              {sym.name}
+                            </td>
+                            <td className="py-4">
+                              <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px] font-bold uppercase">{sym.type}</span>
+                            </td>
+                            <td className="py-4 text-slate-500 text-[11px] truncate max-w-[150px]">{sym.file}</td>
+                            <td className="py-4 text-right font-black text-white">{sym.count}</td>
+                          </tr>
+                        ))}
+                        {(!analyticsData.symbols || analyticsData.symbols.length === 0) && (
+                          <tr><td colSpan="4" className="py-12 text-center text-slate-600 italic text-xs">No analytics data yet. Perform a search to see stats.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Results by Language */}
+                <div className="bg-[#111827] border border-slate-800/80 rounded-[32px] p-8 shadow-2xl">
+                  <h3 className="text-lg font-bold text-white mb-8 flex items-center gap-3">
+                    <span className="text-orange-500 animate-pulse"><Icons.Globe /></span>
+                    Results by Language
+                  </h3>
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 blur-[80px] rounded-full -mr-16 -mt-16"></div>
+                  <div className="h-[220px] w-full flex items-center justify-center min-h-[220px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RePie>
+                        <Pie
+                          data={analyticsData.languages || []}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          {(analyticsData.languages || []).map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={['#3b82f6', '#fbbf24', '#06b6d4', '#f97316', '#ec4899'][index % 5]} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '16px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.4)' }}
+                          itemStyle={{ color: '#fff' }}
+                          labelStyle={{ color: '#94a3b8' }}
+                        />
+                        <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '10px' }} />
+                      </RePie>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
+              {/* Performance Timeline */}
+              <div className="bg-[#111827] border border-slate-800/80 rounded-[32px] p-8 shadow-2xl relative overflow-hidden group">
+                <h3 className="text-lg font-bold text-white mb-8 flex items-center gap-3">
+                  <span className="text-cyan-500 animate-pulse"><Icons.Clock /></span>
+                  Search Performance Timeline
+                </h3>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 blur-[80px] rounded-full -mr-16 -mt-16"></div>
+                <div className="h-[180px] w-full min-h-[180px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={analyticsData.performance || []}>
+                      <defs>
+                        <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.5} />
+                          <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                      <XAxis dataKey="index" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} unit="ms" />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '16px', fontSize: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.4)' }}
+                        itemStyle={{ color: '#fff' }}
+                        labelStyle={{ color: '#94a3b8' }}
+                      />
+                      <Line type="monotone" dataKey="time" stroke="#0ea5e9" strokeWidth={3} dot={{ r: 4, fill: '#0ea5e9', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
+                      <Line type="monotone" dataKey="avg" stroke="#64748b" strokeDasharray="5 5" strokeWidth={1} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          )}
+
+
+          {/* Settings View */}
+          {activeView === 'settings' && (
+            <div className="max-w-4xl mx-auto space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+              {/* Connection Settings */}
+              <div className="bg-[#111827] border border-slate-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden group">
+                <h3 className="text-base font-bold text-white mb-6 flex items-center gap-2">
+                  <Icons.Database /> Connection Settings
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase">Qdrant URL</label>
+                    <input
+                      className="w-full bg-[#0b0f1a] border border-slate-800 rounded-xl px-4 py-1.5 text-sm font-mono text-blue-400 focus:border-blue-500 transition-all outline-none"
+                      value={qdrantUrl}
+                      onChange={e => setQdrantUrl(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase">Collection Name</label>
+                    <input
+                      className="w-full bg-[#0b0f1a] border border-slate-800 rounded-xl px-4 py-1.5 text-sm font-mono text-slate-300 focus:border-blue-500 transition-all outline-none"
+                      value={collectionName}
+                      onChange={e => setCollectionName(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={handleTestConnection}
+                  disabled={isTestingConnection}
+                  className={`flex items-center gap-2 px-5 py-1 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${connectionStatus === 'success'
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
+                    }`}
+                >
+                  {isTestingConnection ? (
+                    <div className="w-4 h-4 border-2 border-slate-400 border-t-white rounded-full animate-spin"></div>
+                  ) : connectionStatus === 'success' ? (
+                    <Icons.Check />
+                  ) : null}
+                  {isTestingConnection ? 'Testing...' : connectionStatus === 'success' ? 'Connection Verified' : 'Test Connection'}
+                </button>
+              </div>
+
+              {/* Model Settings */}
+              <div className="bg-[#111827] border border-slate-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+                <h3 className="text-base font-bold text-white mb-6 flex items-center gap-2">
+                  <Icons.Shield size={20} /> Model Settings
+                </h3>
+                <div className="space-y-6">
+                  <div className="max-w-md">
+                    <CustomDropdown
+                      label="Embedding Model"
+                      value={embeddingModel}
+                      onChange={setEmbeddingModel}
+                      options={['BAAI/bge-small-en-v1.5', 'BAAI/bge-base-en-v1.5', 'sentence-transformers/all-MiniLM-L6-v2']}
+                    />
+                  </div>
+                  <div className="space-y-2 pt-4">
+                    <label className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase">Gemini Model</label>
+                    <div className="flex items-center justify-between bg-[#0b0f1a] border border-slate-800 rounded-2xl px-5 py-2">
+                      <span className="text-sm font-mono text-slate-300">gemini-1.5-flash-preview</span>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]"></span>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Configured</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Search Tuning */}
+              <div className="bg-[#111827] border border-slate-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+                <h3 className="text-base font-bold text-white mb-6 flex items-center gap-2">
+                  <Icons.Analytics /> Search Tuning
+                </h3>
+                <div className="space-y-8">
+                  {/* Semantic Weight */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-[13px] text-[#94a3b8]">
+                      <span>Semantic Weight</span>
+                      <span>{semanticWeight.toFixed(1)}</span>
+                    </div>
+                    <input
+                      type="range" min="0" max="1" step="0.1"
+                      value={semanticWeight} onChange={e => setSemanticWeight(parseFloat(e.target.value))}
+                      className="w-full premium-range"
+                      style={{
+                        background: `linear-gradient(to right, #06b6d4 0%, #10b981 ${semanticWeight * 100}%, #1e293b ${semanticWeight * 100}%, #1e293b 100%)`
+                      }}
+                    />
+                  </div>
+
+                  {/* Lexical Weight (auto) */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-[13px] text-[#94a3b8]">
+                      <span>Lexical Weight (auto)</span>
+                      <span>{(1 - semanticWeight).toFixed(1)}</span>
+                    </div>
+                    {/* Bicolor Ratio Bar */}
+                    <div className="h-6 w-full rounded-full overflow-hidden flex">
+                      <div
+                        className="h-full bg-[#06b6d4] flex items-center justify-center transition-all duration-300 ease-out"
+                        style={{ width: `${semanticWeight * 100}%` }}
+                      >
+                        {semanticWeight > 0.15 && <span className="text-[11px] font-bold text-white">Semantic {(semanticWeight * 100).toFixed(0)}%</span>}
+                      </div>
+                      <div
+                        className="h-full bg-[#8b5cf6] flex items-center justify-center transition-all duration-300 ease-out"
+                        style={{ width: `${(1 - semanticWeight) * 100}%` }}
+                      >
+                        {(1 - semanticWeight) > 0.15 && <span className="text-[11px] font-bold text-white">Lexical {((1 - semanticWeight) * 100).toFixed(0)}%</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Over-fetch Multiplier */}
+                  <div className="space-y-3 pt-2">
+                    <div className="flex justify-between items-center text-[13px] text-[#94a3b8]">
+                      <span>Over-fetch Multiplier</span>
+                      <span>{overfetchMultiplier}x</span>
+                    </div>
+                    <input
+                      type="range" min="1" max="10" step="1"
+                      value={overfetchMultiplier} onChange={e => setOverfetchMultiplier(parseInt(e.target.value))}
+                      className="w-full premium-range"
+                      style={{
+                        background: `linear-gradient(to right, #06b6d4 0%, #10b981 ${(overfetchMultiplier - 1) / 9 * 100}%, #1e293b ${(overfetchMultiplier - 1) / 9 * 100}%, #1e293b 100%)`
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Danger Zone */}
+              <div className="border border-rose-500/30 bg-rose-500/5 rounded-[32px] p-6 shadow-2xl shadow-rose-900/10 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                  <Icons.AlertTriangle />
+                </div>
+                <h3 className="text-lg font-bold text-rose-500 mb-4 flex items-center gap-3">
+                  <Icons.AlertTriangle /> Danger Zone
+                </h3>
+                <div className="flex flex-wrap gap-4">
+                  <button
+                    onClick={handleDeleteCollection}
+                    className="px-5 py-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all flex items-center gap-2 shadow-lg shadow-rose-900/20"
+                  >
+                    <Icons.Trash /> Delete Collection
+                  </button>
+                  <button
+                    onClick={handleResetSettings}
+                    className="px-5 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-700 hover:text-white transition-all flex items-center gap-2"
+                  >
+                    <Icons.Refresh /> Reset All Settings
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* Profile Modal */}
+      {isProfileModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-[#0f172a] border border-slate-800 rounded-[32px] w-full max-w-[325px] overflow-hidden shadow-[0_32px_128px_rgba(0,0,0,0.8)] animate-in zoom-in-95 duration-300 relative">
+            <button
+              onClick={() => setIsProfileModalOpen(false)}
+              className="absolute right-5 top-5 text-slate-500 hover:text-rose-500 transition-all p-1.5 hover:bg-rose-500/10 rounded-xl"
+            >
+              <Icons.Close />
+            </button>
+
+            <div className="p-5 pt-8 flex flex-col items-center">
+              <div className="w-12 h-12 rounded-full bg-blue-500/10 border-2 border-blue-500/20 flex items-center justify-center text-xl font-black text-blue-400 mb-4 shadow-inner ring-4 ring-blue-500/5">
+                {profileData.name ? profileData.name.charAt(0).toUpperCase() : 'U'}
+              </div>
+
+              <h2 className="text-2xl font-black text-white mb-0.5 tracking-tight">Your Profile</h2>
+              <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mb-5">Manage Account</p>
+
+              <div className="w-full bg-[#111827]/40 border border-slate-800/50 rounded-2xl p-4 mb-6 flex flex-col gap-4">
+                {isEditingProfile ? (
+                  <form onSubmit={handleUpdateProfile} className="flex flex-col gap-3">
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block pl-1">Full Name</label>
+                      <input
+                        className="w-full bg-[#0b0f1a] border border-slate-800 rounded-xl px-4 py-2.5 text-sm font-bold text-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                        value={profileData.name}
+                        onChange={e => setProfileData({ ...profileData, name: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block pl-1">Email Address</label>
+                      <input
+                        type="email"
+                        className="w-full bg-[#0b0f1a] border border-slate-800 rounded-xl px-4 py-2.5 text-sm font-bold text-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                        value={profileData.email}
+                        onChange={e => setProfileData({ ...profileData, email: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 block pl-1">New Password</label>
+                      <div className="relative group/pass">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          placeholder="••••••••"
+                          className="w-full bg-[#0b0f1a] border border-slate-800 rounded-xl px-4 py-2.5 text-sm font-bold text-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none placeholder:text-slate-700 pr-12"
+                          value={newPassword}
+                          onChange={e => setNewPassword(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-blue-400 transition-colors"
+                        >
+                          {showPassword ? <Icons.EyeOff /> : <Icons.Eye />}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex gap-3 mt-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingProfile(false)}
+                        className="flex-1 py-2.5 bg-slate-800 text-slate-300 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-rose-500 hover:text-white hover:shadow-lg hover:shadow-rose-500/20 transition-all"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={profileUpdateLoading}
+                        className="flex-[2] py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/25 disabled:opacity-50"
+                      >
+                        {profileUpdateLoading ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-4">
+                      <div className="w-9 h-9 rounded-xl bg-blue-500/5 border border-blue-500/10 flex items-center justify-center text-blue-400">
+                        <Icons.User />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Full Name</p>
+                        <p className="text-[15px] font-bold text-white leading-tight">{profileData.name}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="w-9 h-9 rounded-xl bg-blue-500/5 border border-blue-500/10 flex items-center justify-center text-blue-400">
+                        <Icons.Mail />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Email Address</p>
+                        <p className="text-[13px] font-bold text-white truncate leading-tight">{profileData.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="w-9 h-9 rounded-xl bg-blue-500/5 border border-blue-500/10 flex items-center justify-center text-blue-400">
+                        <Icons.Database />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Account Role</p>
+                        <p className="text-[14px] font-black text-emerald-400 uppercase tracking-tight leading-tight">{profileData.role}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setIsEditingProfile(true)}
+                      className="w-full mt-2 py-3 bg-[#1e293b] border border-slate-700 text-white rounded-2xl text-xs font-black uppercase tracking-[0.15em] hover:bg-blue-600 hover:border-blue-500 hover:shadow-blue-500/20 transition-all shadow-xl flex items-center justify-center gap-3 group"
+                    >
+                      <Icons.Settings className="w-5 h-5 group-hover:rotate-90 transition-transform duration-500 text-blue-400 group-hover:text-white" />
+                      Edit Profile
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default App
