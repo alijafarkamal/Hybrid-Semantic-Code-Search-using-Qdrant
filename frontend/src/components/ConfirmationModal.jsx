@@ -2,6 +2,18 @@ import React from 'react';
 import Icons from './Icons';
 
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, isDestructive, mode = "confirm" }) => {
+    React.useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (isOpen && e.key === 'Enter') {
+                e.preventDefault();
+                onConfirm();
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onConfirm, onClose]);
+
     if (!isOpen) return null;
 
     return (
