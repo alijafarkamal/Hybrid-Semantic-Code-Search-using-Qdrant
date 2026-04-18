@@ -19,7 +19,7 @@ const AppLayout = ({ activeView, setActiveView, sidebarCollapsed, setSidebarColl
           logout={logout}
         />
 
-        <div className="p-8 max-w-7xl mx-auto">
+        <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto min-w-0">
           {children}
         </div>
       </main>
