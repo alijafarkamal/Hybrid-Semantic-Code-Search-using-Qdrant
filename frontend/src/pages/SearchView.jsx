@@ -367,75 +367,91 @@ const SearchView = ({
         </div>
       </div>
 
-      {/* ── Advanced Filters (hidden in plan mode) ─────────────────────── */}
-      {searchMode === 'search' && (
-        <div className="bg-[#111827]/50 border border-slate-800 rounded-2xl max-w-5xl mx-auto transition-all shadow-xl relative">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`w-full p-4 flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest hover:text-slate-300 transition-colors bg-[#111827] rounded-t-2xl ${!showFilters ? 'rounded-b-2xl' : ''}`}
-          >
-            <span className={`transition-transform duration-300 ${showFilters ? 'rotate-180' : 'rotate-90'}`}>⌵</span>
-            Advanced Filters
-          </button>
+      {/* ── Filters (visible in both Search & Plan modes) ───────────────── */}
+      <div className={`border rounded-2xl max-w-5xl mx-auto transition-all shadow-xl relative
+        ${searchMode === 'plan'
+          ? 'bg-violet-950/20 border-violet-500/20'
+          : 'bg-[#111827]/50 border-slate-800'}`}>
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className={`w-full p-4 flex items-center gap-2 text-xs font-bold uppercase tracking-widest transition-colors rounded-t-2xl ${!showFilters ? 'rounded-b-2xl' : ''}
+            ${searchMode === 'plan'
+              ? 'bg-violet-950/30 text-violet-400/70 hover:text-violet-300'
+              : 'bg-[#111827] text-slate-500 hover:text-slate-300'}`}
+        >
+          <span className={`transition-transform duration-300 ${showFilters ? 'rotate-180' : 'rotate-90'}`}>⌵</span>
+          {searchMode === 'plan' ? '✨ Context Filters' : 'Advanced Filters'}
+          {searchMode === 'plan' && (
+            <span className="ml-1 text-[9px] font-black bg-violet-500/15 text-violet-400 border border-violet-500/25 px-1.5 py-0.5 rounded-full normal-case tracking-normal">
+              narrows Gemini context
+            </span>
+          )}
+        </button>
 
-          {showFilters && (
-            <div className="px-6 py-5 animate-in fade-in slide-in-from-top-2 duration-300 border-t border-slate-800/50 rounded-b-2xl overflow-x-auto">
-              <div className="flex flex-wrap items-start gap-6 min-w-0">
-                <CustomDropdown label="Language" value={language} onChange={setLanguage} options={['All', 'Python', 'JavaScript', 'TypeScript', 'Markdown']} />
-                <CustomDropdown label="Repository" value={repo} onChange={setRepo} options={['All', ...stats.repoList.map(r => r.name)]} />
+        {showFilters && (
+          <div className="px-6 py-5 animate-in fade-in slide-in-from-top-2 duration-300 border-t border-slate-800/50 rounded-b-2xl overflow-x-auto">
+            <div className="flex flex-wrap items-start gap-6 min-w-0">
+              <CustomDropdown label="Language" value={language} onChange={setLanguage} options={['All', 'Python', 'JavaScript', 'TypeScript', 'Markdown']} />
+              <CustomDropdown label="Repository" value={repo} onChange={setRepo} options={['All', ...stats.repoList.map(r => r.name)]} />
 
-                <div className="space-y-2 min-w-[120px] flex-1 max-w-[200px]">
-                  <div className="flex justify-between">
-                    <label className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Min Score</label>
-                    <span className="text-[10px] font-mono text-blue-400">{(minScore * 100).toFixed(0)}%</span>
-                  </div>
-                  <input type="range" min="0" max="1" step="0.05" value={minScore} onChange={(e) => setMinScore(parseFloat(e.target.value))} className="w-full premium-range"
-                    style={{ background: `linear-gradient(to right, #06b6d4 0%, #14b8a6 ${minScore * 100}%, rgba(30, 41, 59, 0.5) ${minScore * 100}%, rgba(30, 41, 59, 0.5) 100%)` }} />
+              <div className="space-y-2 min-w-[120px] flex-1 max-w-[200px]">
+                <div className="flex justify-between">
+                  <label className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Min Score</label>
+                  <span className={`text-[10px] font-mono ${searchMode === 'plan' ? 'text-violet-400' : 'text-blue-400'}`}>{(minScore * 100).toFixed(0)}%</span>
                 </div>
+                <input type="range" min="0" max="1" step="0.05" value={minScore} onChange={(e) => setMinScore(parseFloat(e.target.value))} className="w-full premium-range"
+                  style={{ background: searchMode === 'plan'
+                    ? `linear-gradient(to right, #7c3aed 0%, #4f46e5 ${minScore * 100}%, rgba(30, 41, 59, 0.5) ${minScore * 100}%, rgba(30, 41, 59, 0.5) 100%)`
+                    : `linear-gradient(to right, #06b6d4 0%, #14b8a6 ${minScore * 100}%, rgba(30, 41, 59, 0.5) ${minScore * 100}%, rgba(30, 41, 59, 0.5) 100%)` }} />
+              </div>
 
-                <div className="w-px bg-slate-800 self-stretch hidden md:block"></div>
+              <div className="w-px bg-slate-800 self-stretch hidden md:block"></div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Chunk Type</label>
-                  <div className="flex flex-col gap-1.5">
-                    {['Functions', 'Classes', 'Blocks'].map(type => (
-                      <label key={type} className="flex items-center gap-2 cursor-pointer group">
-                        <input type="checkbox" checked={chunkTypes.includes(type)} onChange={() => toggleChunkType(type)} className="accent-blue-500 w-3.5 h-3.5 rounded cursor-pointer" />
-                        <span className={`text-xs font-medium transition-colors ${chunkTypes.includes(type) ? 'text-slate-200' : 'text-slate-500'} group-hover:text-slate-300`}>{type}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Sort By</label>
-                  <div className="flex flex-col gap-1.5">
-                    {['Relevance', 'Semantic', 'Lexical'].map(mode => (
-                      <label key={mode} className="flex items-center gap-2 cursor-pointer group">
-                        <input type="radio" name="sortBy" checked={sortBy === mode.toLowerCase()} onChange={() => setSortBy(mode.toLowerCase())} className="accent-blue-500 w-3.5 h-3.5 cursor-pointer" />
-                        <span className={`text-xs font-medium transition-colors ${sortBy === mode.toLowerCase() ? 'text-slate-200' : 'text-slate-500'} group-hover:text-slate-300`}>{mode}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="w-px bg-slate-800 self-stretch hidden md:block"></div>
-
-                <div className="space-y-2 min-w-[120px] flex-1 max-w-[200px]">
-                  <div className="flex justify-between items-center">
-                    <label className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Limit</label>
-                    <input type="number" min="1" value={limit}
-                      onChange={(e) => { const val = parseInt(e.target.value); if (!isNaN(val) && val > 0) setLimit(val); }}
-                      className="bg-[#0f172a] border border-slate-700 text-slate-300 text-[10px] font-mono px-2 py-0.5 rounded outline-none w-14 text-right focus:border-cyan-500 transition-all" />
-                  </div>
-                  <input type="range" min="1" max={Math.max(100, limit)} value={limit} onChange={(e) => setLimit(parseInt(e.target.value))} className="w-full premium-range"
-                    style={{ background: `linear-gradient(to right, #06b6d4 0%, #14b8a6 ${(limit / Math.max(100, limit)) * 100}%, rgba(30, 41, 59, 0.5) ${(limit / Math.max(100, limit)) * 100}%, rgba(30, 41, 59, 0.5) 100%)` }} />
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Chunk Type</label>
+                <div className="flex flex-col gap-1.5">
+                  {['Functions', 'Classes', 'Blocks'].map(type => (
+                    <label key={type} className="flex items-center gap-2 cursor-pointer group">
+                      <input type="checkbox" checked={chunkTypes.includes(type)} onChange={() => toggleChunkType(type)}
+                        className={`w-3.5 h-3.5 rounded cursor-pointer ${searchMode === 'plan' ? 'accent-violet-500' : 'accent-blue-500'}`} />
+                      <span className={`text-xs font-medium transition-colors ${chunkTypes.includes(type) ? 'text-slate-200' : 'text-slate-500'} group-hover:text-slate-300`}>{type}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Sort By</label>
+                <div className="flex flex-col gap-1.5">
+                  {['Relevance', 'Semantic', 'Lexical'].map(mode => (
+                    <label key={mode} className="flex items-center gap-2 cursor-pointer group">
+                      <input type="radio" name="sortBy" checked={sortBy === mode.toLowerCase()} onChange={() => setSortBy(mode.toLowerCase())}
+                        className={`w-3.5 h-3.5 cursor-pointer ${searchMode === 'plan' ? 'accent-violet-500' : 'accent-blue-500'}`} />
+                      <span className={`text-xs font-medium transition-colors ${sortBy === mode.toLowerCase() ? 'text-slate-200' : 'text-slate-500'} group-hover:text-slate-300`}>{mode}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="w-px bg-slate-800 self-stretch hidden md:block"></div>
+
+              <div className="space-y-2 min-w-[120px] flex-1 max-w-[200px]">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Limit</label>
+                  <input type="number" min="1" value={limit}
+                    onChange={(e) => { const val = parseInt(e.target.value); if (!isNaN(val) && val > 0) setLimit(val); }}
+                    className={`bg-[#0f172a] border text-slate-300 text-[10px] font-mono px-2 py-0.5 rounded outline-none w-14 text-right transition-all
+                      ${searchMode === 'plan' ? 'border-violet-700/50 focus:border-violet-500' : 'border-slate-700 focus:border-cyan-500'}`} />
+                </div>
+                <input type="range" min="1" max={Math.max(100, limit)} value={limit} onChange={(e) => setLimit(parseInt(e.target.value))} className="w-full premium-range"
+                  style={{ background: searchMode === 'plan'
+                    ? `linear-gradient(to right, #7c3aed 0%, #4f46e5 ${(limit / Math.max(100, limit)) * 100}%, rgba(30, 41, 59, 0.5) ${(limit / Math.max(100, limit)) * 100}%, rgba(30, 41, 59, 0.5) 100%)`
+                    : `linear-gradient(to right, #06b6d4 0%, #14b8a6 ${(limit / Math.max(100, limit)) * 100}%, rgba(30, 41, 59, 0.5) ${(limit / Math.max(100, limit)) * 100}%, rgba(30, 41, 59, 0.5) 100%)` }} />
+              </div>
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
       {/* ── Results / Plan Area ───────────────────────────────────────── */}
       <div ref={resultsRef} className="max-w-5xl mx-auto space-y-6 scroll-mt-24">
