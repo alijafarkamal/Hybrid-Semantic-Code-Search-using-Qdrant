@@ -9,6 +9,7 @@ const AuthPage = ({ onLogin }) => {
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -26,7 +27,7 @@ const AuthPage = ({ onLogin }) => {
 
       const data = await resp.json()
       if (resp.ok) {
-        onLogin(data.access_token, data.user_name)
+        onLogin(data.access_token, data.user_name, rememberMe)
       } else {
         setError(data.detail || 'Authentication failed')
       }
@@ -200,6 +201,21 @@ const AuthPage = ({ onLogin }) => {
                     </button>
                   </div>
                 </div>
+
+                {isLogin && (
+                  <div className="flex items-center gap-2 mt-1">
+                    <input
+                      type="checkbox"
+                      id="rememberMe"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-900/50 text-blue-600 focus:ring-blue-500/30 focus:ring-offset-0 cursor-pointer accent-blue-600"
+                    />
+                    <label htmlFor="rememberMe" className="text-[11px] font-semibold text-slate-400 cursor-pointer select-none hover:text-slate-300 transition-colors">
+                      Remember me
+                    </label>
+                  </div>
+                )}
 
                 <button
                   type="submit"

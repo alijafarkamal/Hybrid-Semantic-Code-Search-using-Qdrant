@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import Icons from '../components/Icons';
 import StatCard from '../components/StatCard';
 import RepoRow from '../components/RepoRow';
 
-const DashboardView = ({ stats, searchHistory, setQuery, setActiveView, handleSearch, embeddingModel, collectionName }) => {
+const DashboardView = ({ stats, searchHistory, setQuery, setActiveView, handleSearch, embeddingModel, collectionName, setSearchMode }) => {
+  const [planInput, setPlanInput] = useState('');
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -47,6 +49,73 @@ const DashboardView = ({ stats, searchHistory, setQuery, setActiveView, handleSe
         </div>
       </div>
 
+      {/* AI Plan Mode CTA */}
+      <div className="bg-gradient-to-br from-violet-950/50 via-indigo-950/40 to-[#111827] border border-violet-500/20 rounded-2xl p-8 shadow-2xl shadow-violet-900/10 relative overflow-hidden animate-in fade-in slide-in-from-bottom-5 duration-900">
+        {/* Background glows */}
+        <div className="absolute -top-12 -right-12 w-56 h-56 bg-violet-600/8 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute -bottom-12 -left-12 w-56 h-56 bg-blue-600/8 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div className="relative flex flex-col sm:flex-row sm:items-start gap-6">
+          {/* Left: text */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-600 to-blue-600 flex items-center justify-center text-base shadow-lg shadow-violet-500/25">
+                ✨
+              </div>
+              <div>
+                <span className="text-[9px] font-black text-violet-400 uppercase tracking-[0.2em]">Powered by Gemini</span>
+                <h3 className="text-base font-bold text-white leading-none">AI Plan Mode</h3>
+              </div>
+            </div>
+            <p className="text-sm text-slate-400 leading-relaxed mb-5">
+              Describe a feature or change in plain English — Gemini will analyse your indexed codebase and generate a
+              structured change plan with files to modify, suggested edits, and tests to update.
+            </p>
+
+            {/* Quick-launch form */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!planInput.trim()) return;
+                setSearchMode('plan');
+                setQuery(planInput);
+                setActiveView('search');
+                handleSearch(null, planInput, 'plan');
+              }}
+              className="flex gap-2"
+            >
+              <input
+                type="text"
+                value={planInput}
+                onChange={(e) => setPlanInput(e.target.value)}
+                placeholder='e.g. "add rate limiting to the login endpoint"'
+                className="flex-1 bg-[#0d1117] border border-violet-500/20 focus:border-violet-500/50 rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder:text-slate-600 outline-none transition-all"
+              />
+              <button
+                type="submit"
+                className="bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition-all shadow-lg shadow-violet-500/20 active:scale-95 whitespace-nowrap"
+              >
+                Generate Plan
+              </button>
+            </form>
+          </div>
+
+          {/* Right: feature bullets */}
+          <div className="shrink-0 space-y-2 sm:pt-12">
+            {[
+              { icon: '📁', label: 'Files to modify' },
+              { icon: '✏️', label: 'Suggested changes' },
+              { icon: '🧪', label: 'Tests to update' },
+            ].map(({ icon, label }) => (
+              <div key={label} className="flex items-center gap-2 text-xs text-slate-400">
+                <span>{icon}</span>
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Recent Searches */}
       <div className="bg-[#111827] border border-slate-800/50 rounded-2xl p-8 shadow-xl animate-in fade-in slide-in-from-bottom-6 duration-1000">
         <div className="flex items-center gap-2 mb-6 text-blue-400">
@@ -57,7 +126,7 @@ const DashboardView = ({ stats, searchHistory, setQuery, setActiveView, handleSe
           {searchHistory.length > 0 ? searchHistory.map((s, idx) => (
             <button
               key={`${s}-${idx}`}
-              onClick={() => { setQuery(s); setActiveView('search'); handleSearch(null, s); }}
+              onClick={() => { setSearchMode('search'); setQuery(s); setActiveView('search'); handleSearch(null, s, 'search'); }}
               className="px-4 py-2 bg-[#161e2e] border border-slate-800 rounded-full text-xs text-slate-400 hover:text-white hover:border-slate-600 transition-all shadow-sm"
             >
               {s}

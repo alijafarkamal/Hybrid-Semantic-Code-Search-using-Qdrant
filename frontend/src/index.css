@@ -273,3 +273,34 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
+
+/* ─── Code Block Horizontal Scrollbar ─── */
+.code-scroll::-webkit-scrollbar {
+  height: 5px;
+}
+
+.code-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.code-scroll::-webkit-scrollbar-thumb {
+  background: #2d3748;
+  border-radius: 4px;
+}
+
+.code-scroll::-webkit-scrollbar-thumb:hover {
+  background: #4a5568;
+}
+
+/* ─── Responsive Overflow Guards ─── */
+@media (max-width: 640px) {
+  .sidebar-collapsed-mobile {
+    width: 4rem;
+  }
+
+  /* Prevent filter panels from pushing layout */
+  .filter-panel-scroll {
+    overflow-x: auto;
+  }
+}

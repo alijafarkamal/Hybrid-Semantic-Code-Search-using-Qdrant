@@ -25,12 +25,12 @@ const Header = ({ activeView, username, openProfileModal, logout }) => {
   }, []);
 
   return (
-    <header className="sticky top-0 z-30 bg-[#0b0f1a]/80 backdrop-blur-md border-b border-slate-800/50 px-8 py-4 flex justify-between items-center">
-      <h2 className="text-xl font-bold text-white">
+    <header className="sticky top-0 z-30 bg-[#0b0f1a]/80 backdrop-blur-md border-b border-slate-800/50 px-4 sm:px-8 py-3 sm:py-4 flex justify-between items-center gap-4 min-w-0">
+      <h2 className="text-lg sm:text-xl font-bold text-white whitespace-nowrap">
         {viewTitles[activeView] || 'Dashboard'}
       </h2>
-      <div className="flex items-center gap-6">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+      <div className="flex items-center gap-3 sm:gap-6 shrink-0">
+        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
           <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_#10b981]"></span>
           <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Qdrant Connected</span>
         </div>
