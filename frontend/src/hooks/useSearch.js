@@ -9,7 +9,12 @@ const useSearch = (authFetch, semanticWeight) => {
   const [loading, setLoading] = useState(false);
   const [searchTime, setSearchTime] = useState(0);
   const [expandedIndex, setExpandedIndex] = useState(null);
+
+  // ── Plan Mode ──────────────────────────────────────────────────────────────
+  const [searchMode, setSearchMode] = useState('search'); // 'search' | 'plan'
   const [plan, setPlan] = useState(null);
+  const [planLoading, setPlanLoading] = useState(false);
+  // ──────────────────────────────────────────────────────────────────────────
 
   // Advanced Filter State
   const [showFilters, setShowFilters] = useState(true);
@@ -41,12 +46,16 @@ const useSearch = (authFetch, semanticWeight) => {
     return results;
   }, [results]);
 
-  const handleSearch = async (e, forcedQuery = null) => {
+  const handleSearch = async (e, forcedQuery = null, forcedMode = null) => {
     if (e) e.preventDefault();
     const finalQuery = forcedQuery || query;
     if (!finalQuery) return;
 
+    // Determine which mode to use (allows history chips to keep current mode)
+    const activeMode = forcedMode || searchMode;
+
     setLoading(true);
+    if (activeMode === 'plan') setPlanLoading(true);
     const startTime = performance.now();
     setPlan(null);
     setResults([]);
@@ -74,7 +83,7 @@ const useSearch = (authFetch, semanticWeight) => {
           min_score: minScore,
           sort_by: sortBy,
           semantic_weight: semanticWeight,
-          mode: 'search'
+          mode: activeMode   // ← 'search' OR 'plan' sent to backend
         }),
       });
       const data = await response.json();
@@ -84,23 +93,26 @@ const useSearch = (authFetch, semanticWeight) => {
       setResults(resultsData);
       setSearchTime((searchLatency / 1000).toFixed(2));
 
+      // ── If plan mode — store the plan from backend response ──────────────
+      if (activeMode === 'plan' && data.plan) {
+        setPlan(data.plan);
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       // Update Analytics Data
       if (resultsData.length > 0) {
-        // 1. Score Distribution (Buckets of 0.1)
         const buckets = Array(10).fill(0).map((_, i) => ({ range: `${(i / 10).toFixed(1)}-${((i + 1) / 10).toFixed(1)}`, count: 0 }));
         resultsData.forEach(r => {
           const idx = Math.min(Math.floor(r.score * 10), 9);
           buckets[idx].count++;
         });
 
-        // 2. Correlation (Semantic vs Lexical)
         const corr = resultsData.map(r => ({
           semantic: r.semantic_score || 0,
           lexical: r.lexical_score || 0,
           name: r.symbol_name || 'block'
         }));
 
-        // 3. Symbol Frequency
         const symMap = {};
         resultsData.forEach(r => {
           const key = r.symbol_name || 'unknown';
@@ -109,7 +121,6 @@ const useSearch = (authFetch, semanticWeight) => {
         });
         const topSymbols = Object.values(symMap).sort((a, b) => b.count - a.count).slice(0, 6);
 
-        // 4. Languages
         const langMap = {};
         resultsData.forEach(r => {
           const key = r.language || 'Other';
@@ -138,6 +149,7 @@ const useSearch = (authFetch, semanticWeight) => {
       console.error(err);
     } finally {
       setLoading(false);
+      setPlanLoading(false);
     }
   };
 
@@ -149,7 +161,10 @@ const useSearch = (authFetch, semanticWeight) => {
 
   return {
     query, setQuery, results, loading, searchTime,
-    expandedIndex, setExpandedIndex, plan,
+    expandedIndex, setExpandedIndex,
+    // Plan Mode exports
+    searchMode, setSearchMode,
+    plan, planLoading,
     showFilters, setShowFilters,
     language, setLanguage, repo, setRepo,
     minScore, setMinScore,
