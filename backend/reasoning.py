@@ -113,11 +113,62 @@ def _build_context(results: List[Dict[str, Any]], max_chars: int = 12000) -> str
 def _get_client() -> genai.Client:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        raise RuntimeError(
-            "GEMINI_API_KEY environment variable is not set. "
-            "Please add it to your .env or shell environment."
-        )
+        raise RuntimeError("GEMINI_API_KEY environment variable is not set.")
     return genai.Client(api_key=api_key)
+
+
+def _build_fallback_plan(query: str, results: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Build a lightweight plan when Gemini is not configured.
+
+    This keeps the app usable without an API key while still returning a
+    structured response that the UI can render.
+    """
+
+    top_results = [r for r in results[:5] if r.get("file_path")]
+    files_to_modify = []
+    suggested_changes = []
+
+    for result in top_results:
+        file_path = str(result.get("file_path"))
+        reason = (
+            f"Relevant search hit for '{query}'"
+            if query else "Relevant search hit"
+        )
+        files_to_modify.append(
+            FileChangeSuggestion(
+                file_path=file_path,
+                reason=reason,
+                relevant_lines=[result.get("start_line", 0), result.get("end_line", 0)],
+            )
+        )
+        suggested_changes.append(
+            SuggestedChange(
+                file_path=file_path,
+                change_type="modify",
+                summary="Inspect this file and apply the smallest change needed for the requested behavior.",
+                important_considerations=["Derived from semantic search results because Gemini is not configured."],
+            )
+        )
+
+    if not files_to_modify:
+        return ChangePlan(
+            goal=query,
+            files_to_modify=[],
+            existing_logic_summary="No code results were retrieved; nothing to plan.",
+            suggested_changes=[],
+            tests_to_update=[],
+        ).to_dict()
+
+    return ChangePlan(
+        goal=query,
+        files_to_modify=files_to_modify,
+        existing_logic_summary=(
+            "Gemini is not configured, so this is a heuristic plan built from "
+            "the most relevant search results."
+        ),
+        suggested_changes=suggested_changes,
+        tests_to_update=[],
+    ).to_dict()
 
 
 def _strip_code_fences(text: str) -> str:
@@ -146,6 +197,10 @@ def generate_change_plan(query: str, results: List[Dict[str, Any]]) -> Dict[str,
             tests_to_update=[],
         )
         return plan.to_dict()
+
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return _build_fallback_plan(query, results)
 
     context = _build_context(results)
 
