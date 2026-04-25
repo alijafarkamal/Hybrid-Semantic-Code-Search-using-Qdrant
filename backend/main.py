@@ -1,8 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends, status, Security, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import HTMLResponse
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, EmailStr
 from typing import List, Optional, Any
 from datetime import datetime
 import os
@@ -86,8 +85,6 @@ class IngestRequest(BaseModel):
     exclude_dirs: Optional[List[str]] = None
 
 class IngestionRecordResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     id: int
     repo_name: str
     directory_path: str
@@ -96,68 +93,11 @@ class IngestionRecordResponse(BaseModel):
     status: str
     created_at: datetime
 
+    class Config:
+        orm_mode = True
+
 # Auth Security
 security = HTTPBearer()
-
-
-@app.get("/", response_class=HTMLResponse)
-async def root():
-        return """
-        <!doctype html>
-        <html>
-            <head>
-                <meta charset="utf-8" />
-                <meta name="viewport" content="width=device-width, initial-scale=1" />
-                <title>Semantic Code Search</title>
-                <style>
-                    body {
-                        font-family: Arial, sans-serif;
-                        background: #0b0f1a;
-                        color: #e5e7eb;
-                        margin: 0;
-                        min-height: 100vh;
-                        display: grid;
-                        place-items: center;
-                    }
-                    .card {
-                        max-width: 720px;
-                        margin: 24px;
-                        padding: 32px;
-                        border: 1px solid #1f2937;
-                        border-radius: 20px;
-                        background: rgba(17, 24, 39, 0.95);
-                        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
-                    }
-                    h1 { margin-top: 0; font-size: 2rem; }
-                    p { line-height: 1.6; color: #cbd5e1; }
-                    a {
-                        color: #93c5fd;
-                        text-decoration: none;
-                        font-weight: 700;
-                    }
-                    a:hover { text-decoration: underline; }
-                    ul { line-height: 1.8; }
-                    code {
-                        background: #111827;
-                        padding: 2px 6px;
-                        border-radius: 6px;
-                        color: #f8fafc;
-                    }
-                </style>
-            </head>
-            <body>
-                <main class="card">
-                    <h1>Semantic Code Search API</h1>
-                    <p>The backend is running. This port serves the API, not the React website.</p>
-                    <ul>
-                        <li>API docs: <a href="/docs">/docs</a></li>
-                        <li>OpenAPI: <a href="/openapi.json">/openapi.json</a></li>
-                        <li>Frontend website: run <code>npm run dev</code> in the <code>frontend</code> folder and open the Vite URL, usually <code>http://localhost:5173</code></li>
-                    </ul>
-                </main>
-            </body>
-        </html>
-        """
 
 async def get_current_user(auth: HTTPAuthorizationCredentials = Security(security)):
     token = auth.credentials
