@@ -363,9 +363,14 @@ class CodeIngester:
         self,
         qdrant_url: str = "http://localhost:6333",
         collection_name: str = "code_search",
-        embedding_model: str = "BAAI/bge-small-en-v1.5"
+        embedding_model: str = "BAAI/bge-small-en-v1.5",
+        client: Optional[QdrantClient] = None
     ):
-        self.client = QdrantClient(path="./qdrant_db")
+        if client:
+            self.client = client
+        else:
+            self.client = QdrantClient(path="./qdrant_db")
+            
         self.collection_name = collection_name
         # FastEmbed is much lighter - no PyTorch required!
         self.model = TextEmbedding(model_name=embedding_model)
@@ -425,7 +430,7 @@ class CodeIngester:
         directory: str,
         repo_name: Optional[str] = None,
         exclude_dirs: Optional[List[str]] = None
-    ):
+    ) -> Dict[str, int]:
         """
         Recursively ingest all code files from a directory.
         
@@ -460,6 +465,7 @@ class CodeIngester:
         # Process files
         all_points = []
         total_chunks = 0
+        files_count = 0
         
         for file_path in code_files:
             try:
@@ -498,12 +504,14 @@ class CodeIngester:
                         payload['docstring'] = chunk['docstring']
 
                     point = PointStruct(
-                        id=len(all_points),
+                        id=hash(f"{repo_name}:{file_path}:{chunk['start_line']}") & 0x7FFFFFFF,
                         vector=embedding,
                         payload=payload,
                     )
                     all_points.append(point)
                     total_chunks += 1
+                
+                files_count += 1
                 
                 if len(all_points) >= 100:  # Batch upsert every 100 points
                     self.client.upsert(
@@ -528,6 +536,7 @@ class CodeIngester:
             print(f"  Upserted {len(all_points)} chunks (total: {total_chunks})")
         
         print(f"\nIngestion complete! Total chunks: {total_chunks}")
+        return {'files_count': files_count, 'chunks_count': total_chunks}
     
     def get_collection_info(self):
         """Get information about the collection."""
