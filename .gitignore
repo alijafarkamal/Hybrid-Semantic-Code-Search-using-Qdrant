@@ -33,6 +33,7 @@ build/
 
 # Qdrant local storage (large binary segments) - do not push
 qdrant_storage/
+qdrant_db/
 
 # Temporary files
 *.log
@@ -64,6 +65,8 @@ qdrant_storage/
 .DS_Store
 Thumbs.db
 
+
+backend/users.db
 backend/qdrant_db/
 *.lock
 

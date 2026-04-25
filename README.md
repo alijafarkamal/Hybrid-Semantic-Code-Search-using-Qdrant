@@ -722,6 +722,10 @@ python main.py
 # Server starts at http://localhost:8000
 ```
 
+Notes:
+- The backend serves the API at port 8000; the browser-facing homepage is the frontend app.
+- Gemini is optional for normal search and auth. If you do not have a `GEMINI_API_KEY`, plan mode falls back to a local heuristic plan.
+
 ### 3. Frontend Setup
 
 ```bash
