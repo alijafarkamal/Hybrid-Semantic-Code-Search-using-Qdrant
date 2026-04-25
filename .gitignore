@@ -64,6 +64,8 @@ qdrant_storage/
 .DS_Store
 Thumbs.db
 
+
+backend/users.db
 backend/qdrant_db/
 *.lock
 
