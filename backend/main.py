@@ -1,10 +1,11 @@
 from fastapi import FastAPI, HTTPException, Depends, status, Security, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 from typing import List, Optional, Any
 from datetime import datetime
 import os
+import uuid
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 
@@ -93,8 +94,8 @@ class IngestionRecordResponse(BaseModel):
     status: str
     created_at: datetime
 
-    class Config:
-        orm_mode = True
+    # Fix #6: use Pydantic V2 ConfigDict instead of deprecated orm_mode
+    model_config = ConfigDict(from_attributes=True)
 
 # Auth Security
 security = HTTPBearer()
@@ -339,7 +340,7 @@ def run_ingestion(record_id: int, directory_path: str, repo_name: str, exclude_d
                         payload['docstring'] = chunk['docstring']
 
                     all_points.append(PointStruct(
-                        id=hash(f"{repo_name}:{file_path}:{chunk['start_line']}") & 0x7FFFFFFF,
+                        id=uuid.uuid5(uuid.NAMESPACE_URL, f"{repo_name}:{file_path}:{chunk['start_line']}").int & 0x7FFFFFFFFFFFFFFF,
                         vector=embedding,
                         payload=payload,
                     ))
@@ -436,7 +437,7 @@ async def clear_ingestion_history(db: Session = Depends(get_db), current_user: A
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/debug-clear")
-async def debug_clear_qdrant():
+async def debug_clear_qdrant(current_user: Any = Depends(get_current_user)):
     try:
         # Fetch up to 100k points to manually delete everything but 'sample'
         res = searcher.client.scroll(

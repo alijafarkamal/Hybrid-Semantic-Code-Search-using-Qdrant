@@ -43,7 +43,6 @@ graph TB
         SearchMod["search.py — CodeSearcher"]
         IngestMod["ingest.py — CodeChunker + CodeIngester"]
         ReasonMod["reasoning.py — Gemini Change Planner"]
-        GradioUI["ui_gradio.py — Gradio UI (Alternate)"]
     end
 
     subgraph External ["External Services & Storage"]
@@ -66,8 +65,6 @@ graph TB
     IngestMod --> Qdrant
     IngestMod --> FastEmbed
     ReasonMod --> Gemini
-    GradioUI --> SearchMod
-    GradioUI --> ReasonMod
 ```
 
 ---
@@ -84,7 +81,6 @@ lablab-qdrant/
 │   ├── search.py            # CodeSearcher class: hybrid semantic+lexical search
 │   ├── ingest.py            # CodeChunker + CodeIngester: AST/regex parsing, embedding
 │   ├── reasoning.py         # Gemini change planning: dataclasses + API calls
-│   ├── ui_gradio.py         # Gradio web UI (alternate interface)
 │   ├── reset_db.py          # Utility: clear SQLite + Qdrant data
 │   ├── requirements.txt     # Python dependencies
 │   ├── users.db             # SQLite database file
@@ -123,7 +119,6 @@ lablab-qdrant/
 | **Vector Database** | Qdrant (local mode) | Code embedding storage and cosine similarity search |
 | **Embeddings** | FastEmbed (BAAI/bge-small-en-v1.5) | 384-dim vector generation, CPU-only |
 | **AI Reasoning** | Google Gemini (google-genai SDK) | Structured change plan generation |
-| **Alt. UI** | Gradio 4.x | Secondary web interface |
 | **Frontend Framework** | React 19 + Vite 7 | SPA with hot reload |
 | **Frontend Styling** | Tailwind CSS 4 | Utility-first CSS framework |
 | **Charts** | Recharts 3 | Dashboard analytics visualizations |
@@ -287,7 +282,6 @@ This section documents every class, its attributes, methods, and inter-class rel
 - `CodeSearcher` **uses** `QdrantClient` for vector search operations.
 - `CodeSearcher` **uses** `TextEmbedding` for query embedding.
 - `main.py` **instantiates** one global `CodeSearcher` (`searcher`) at startup.
-- `ui_gradio.py` **instantiates** its own `CodeSearcher` instances.
 - `main.py` **reuses** `searcher.client` for ingestion (to avoid Qdrant concurrent writer conflict).
 
 ---
@@ -406,7 +400,7 @@ Module-level functions:
 
 **Relationships:**
 - `ChangePlan` **aggregates** `FileChangeSuggestion`, `SuggestedChange`, `TestUpdateSuggestion`.
-- `generate_change_plan()` is called by `main.py` (in search endpoint with mode="plan") and `ui_gradio.py`.
+- `generate_change_plan()` is called by `main.py` (in search endpoint with mode="plan").
 - `_get_client()` creates a `genai.Client` using the `GEMINI_API_KEY` env var.
 
 ---

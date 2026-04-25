@@ -54,12 +54,6 @@ python ingest.py /path/to/your/project --repo-name my-project
 python search.py "your search query"
 ```
 
-**Gradio UI:**
-```bash
-python ui_gradio.py
-# Open http://localhost:7860
-```
-
 ---
 
 ## 6. Start the Frontend (Optional)

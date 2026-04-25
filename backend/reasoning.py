@@ -21,7 +21,7 @@ from google import genai
 
 load_dotenv()
 
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 
 @dataclass
@@ -133,7 +133,7 @@ def _strip_code_fences(text: str) -> str:
 def generate_change_plan(query: str, results: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Call Gemini to generate a structured change plan.
 
-    This function is safe to call from both the CLI and the Gradio UI.
+    This function is safe to call from the CLI.
     It returns a pure-Python dict so callers do not depend on dataclasses.
     """
 

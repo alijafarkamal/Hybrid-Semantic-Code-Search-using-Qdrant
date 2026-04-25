@@ -43,6 +43,8 @@ const SettingsView = ({
           disabled={isTestingConnection}
           className={`flex items-center gap-2 px-5 py-1 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${connectionStatus === 'success'
             ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+            : connectionStatus === 'error'
+            ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
             : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
             }`}
         >
@@ -51,7 +53,7 @@ const SettingsView = ({
           ) : connectionStatus === 'success' ? (
             <Icons.Check />
           ) : null}
-          {isTestingConnection ? 'Testing...' : connectionStatus === 'success' ? 'Connection Verified' : 'Test Connection'}
+          {isTestingConnection ? 'Testing...' : connectionStatus === 'success' ? 'Connection Verified' : connectionStatus === 'error' ? 'Connection Failed' : 'Test Connection'}
         </button>
       </div>
 
@@ -72,7 +74,7 @@ const SettingsView = ({
           <div className="space-y-2 pt-4">
             <label className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase">Gemini Model</label>
             <div className="flex items-center justify-between bg-[#0b0f1a] border border-slate-800 rounded-2xl px-5 py-2">
-              <span className="text-sm font-mono text-slate-300">gemini-1.5-flash-preview</span>
+              <span className="text-sm font-mono text-slate-300">gemini-2.5-flash</span>
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]"></span>
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Configured</span>

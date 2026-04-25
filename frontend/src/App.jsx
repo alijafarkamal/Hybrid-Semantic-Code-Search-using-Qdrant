@@ -31,7 +31,7 @@ const App = () => {
   // Hooks
   const { modalConfig, requestConfirm, requestAlert, handleClose, handleConfirm } = useConfirm();
   const { token, username, setUsername, login, logout, authFetch } = useAuth();
-  const settings = useSettings(requestConfirm, requestAlert);
+  const settings = useSettings(requestConfirm, requestAlert, authFetch);
   const { stats } = useStats(token, authFetch);
   const search = useSearch(authFetch, settings.semanticWeight);
   const ingestion = useIngestion(authFetch, activeView, requestConfirm, requestAlert);

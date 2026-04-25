@@ -1,4 +1,6 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useRef } from 'react';
+
+const BASE_URL = 'http://127.0.0.1:8000'; // Fix #5: unified URL constant
 
 const useSearch = (authFetch, semanticWeight) => {
   const resultsRef = useRef(null);
@@ -41,10 +43,8 @@ const useSearch = (authFetch, semanticWeight) => {
     performance: []
   });
 
-  // Reactive Results Filtering
-  const displayedResults = useMemo(() => {
-    return results;
-  }, [results]);
+  // Results alias (no filtering needed here — results come pre-ranked from backend)
+  const displayedResults = results;
 
   const handleSearch = async (e, forcedQuery = null, forcedMode = null) => {
     if (e) e.preventDefault();
@@ -68,7 +68,7 @@ const useSearch = (authFetch, semanticWeight) => {
     });
 
     try {
-      const response = await authFetch('http://127.0.0.1:8000/search', {
+      const response = await authFetch(`${BASE_URL}/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -76,7 +76,8 @@ const useSearch = (authFetch, semanticWeight) => {
           limit,
           language: language === 'All' ? null : language,
           repo: repo === 'All' ? null : repo,
-          chunk_types: chunkTypes.map(t => {
+          // Fix #14: send null when all types selected or none — avoids Qdrant MatchAny([]) error
+          chunk_types: chunkTypes.length === 0 || chunkTypes.length === 3 ? null : chunkTypes.map(t => {
             const map = { 'Functions': 'function', 'Classes': 'class', 'Blocks': 'block' };
             return map[t] || t.toLowerCase();
           }),

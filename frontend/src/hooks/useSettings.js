@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
-const useSettings = (requestConfirm, requestAlert) => {
+const BASE_URL = 'http://127.0.0.1:8000';
+
+const useSettings = (requestConfirm, requestAlert, authFetch) => {
   const [qdrantUrl, setQdrantUrl] = useState('http://localhost:6333');
   const [collectionName, setCollectionName] = useState('code_search');
   const [isTestingConnection, setIsTestingConnection] = useState(false);
@@ -9,13 +11,22 @@ const useSettings = (requestConfirm, requestAlert) => {
   const [semanticWeight, setSemanticWeight] = useState(0.7);
   const [overfetchMultiplier, setOverfetchMultiplier] = useState(5);
 
+  // Fix #1: Actually ping the backend instead of faking success
   const handleTestConnection = async () => {
     setIsTestingConnection(true);
     setConnectionStatus(null);
-    setTimeout(() => {
+    try {
+      const resp = await authFetch(`${BASE_URL}/info`);
+      if (resp.ok) {
+        setConnectionStatus('success');
+      } else {
+        setConnectionStatus('error');
+      }
+    } catch {
+      setConnectionStatus('error');
+    } finally {
       setIsTestingConnection(false);
-      setConnectionStatus('success');
-    }, 1500);
+    }
   };
 
   const handleResetSettings = async () => {
@@ -31,14 +42,26 @@ const useSettings = (requestConfirm, requestAlert) => {
     }
   };
 
+  // Fix #2: Actually call the backend to clear the collection
   const handleDeleteCollection = async () => {
     const isConfirmed = await requestConfirm(
       "Delete Collection",
-      "CRITICAL: This will permanently delete the collection and all its vectorized data. Are you absolutely sure you want to continue?",
+      "CRITICAL: This will permanently delete all vectorized data from the collection. Are you absolutely sure?",
       true
     );
-    if (isConfirmed) {
-      requestAlert("Collection Deleted", "The collection has been successfully deleted. (Simulated)");
+    if (!isConfirmed) return;
+
+    try {
+      const resp = await authFetch(`${BASE_URL}/debug-clear`);
+      if (resp.ok) {
+        const data = await resp.json();
+        requestAlert("Collection Cleared", data.message || "All non-sample vectors have been deleted.");
+      } else {
+        const err = await resp.json().catch(() => ({}));
+        requestAlert("Error", `Failed to delete collection: ${err.detail || resp.statusText}`, true);
+      }
+    } catch (e) {
+      requestAlert("Error", `Network error: ${e.message}`, true);
     }
   };
 

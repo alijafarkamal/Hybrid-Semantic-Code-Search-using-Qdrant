@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+
+const BASE_URL = 'http://127.0.0.1:8000'; // Fix #5: unified URL
 
 const useIngestion = (authFetch, activeView, requestConfirm, requestAlert) => {
   const [ingestionHistory, setIngestionHistory] = useState([]);
@@ -10,10 +12,11 @@ const useIngestion = (authFetch, activeView, requestConfirm, requestAlert) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isClearingHistory, setIsClearingHistory] = useState(false);
 
-  const fetchIngestionHistory = async () => {
+  // Fix #4: useCallback so it can safely go into useEffect deps
+  const fetchIngestionHistory = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const response = await authFetch('http://localhost:8000/ingestion-history');
+      const response = await authFetch(`${BASE_URL}/ingestion-history`);
       if (response.ok) {
         const data = await response.json();
         setIngestionHistory(data);
@@ -23,7 +26,7 @@ const useIngestion = (authFetch, activeView, requestConfirm, requestAlert) => {
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, [authFetch]); // Fix #4: authFetch in deps
 
   const handleClearHistory = async () => {
     const isConfirmed = await requestConfirm(
@@ -35,7 +38,7 @@ const useIngestion = (authFetch, activeView, requestConfirm, requestAlert) => {
 
     setIsClearingHistory(true);
     try {
-      const response = await authFetch('http://localhost:8000/ingestion-history', {
+      const response = await authFetch(`${BASE_URL}/ingestion-history`, {
         method: 'DELETE'
       });
       if (response.ok) {
@@ -57,7 +60,7 @@ const useIngestion = (authFetch, activeView, requestConfirm, requestAlert) => {
 
     setIsIngesting(true);
     try {
-      const response = await authFetch('http://localhost:8000/ingest', {
+      const response = await authFetch(`${BASE_URL}/ingest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -94,7 +97,7 @@ const useIngestion = (authFetch, activeView, requestConfirm, requestAlert) => {
       const interval = setInterval(fetchIngestionHistory, 5000);
       return () => clearInterval(interval);
     }
-  }, [activeView]);
+  }, [activeView, fetchIngestionHistory]); // Fix #4: stable fetchIngestionHistory in deps
 
   return {
     ingestionHistory, ingestPath, setIngestPath,
