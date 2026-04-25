@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 const useAuth = () => {
   const [token, setToken] = useState(
@@ -8,24 +8,24 @@ const useAuth = () => {
     localStorage.getItem('scs_user') || sessionStorage.getItem('scs_user')
   );
 
-  const login = (newToken, newUser, rememberMe = false) => {
+  const login = useCallback((newToken, newUser, rememberMe = false) => {
     const storage = rememberMe ? localStorage : sessionStorage;
     storage.setItem('scs_token', newToken);
     storage.setItem('scs_user', newUser);
     setToken(newToken);
     setUsername(newUser);
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     sessionStorage.removeItem('scs_token');
     sessionStorage.removeItem('scs_user');
     localStorage.removeItem('scs_token');
     localStorage.removeItem('scs_user');
     setToken(null);
     setUsername(null);
-  };
+  }, []);
 
-  const authFetch = async (url, options = {}) => {
+  const authFetch = useCallback(async (url, options = {}) => {
     const headers = {
       ...options.headers,
       'Authorization': `Bearer ${token}`
@@ -35,7 +35,7 @@ const useAuth = () => {
       logout();
     }
     return resp;
-  };
+  }, [token, logout]);
 
   return { token, username, setUsername, login, logout, authFetch };
 };
