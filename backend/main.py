@@ -43,6 +43,41 @@ searcher = CodeSearcher(
     embedding_model="BAAI/bge-small-en-v1.5"
 )
 
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+        return """
+        <!doctype html>
+        <html>
+            <head>
+                <meta charset="utf-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1" />
+                <title>Semantic Code Search API</title>
+                <style>
+                    body { font-family: Arial, sans-serif; background: #0b0f1a; color: #e5e7eb; margin: 0; min-height: 100vh; display: grid; place-items: center; }
+                    .card { max-width: 720px; margin: 24px; padding: 32px; border: 1px solid #1f2937; border-radius: 20px; background: rgba(17, 24, 39, 0.95); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35); }
+                    h1 { margin-top: 0; font-size: 2rem; }
+                    p, li { line-height: 1.6; color: #cbd5e1; }
+                    a { color: #93c5fd; text-decoration: none; font-weight: 700; }
+                    a:hover { text-decoration: underline; }
+                    ul { line-height: 1.8; }
+                    code { background: #111827; padding: 2px 6px; border-radius: 6px; color: #f8fafc; }
+                </style>
+            </head>
+            <body>
+                <main class="card">
+                    <h1>Semantic Code Search API</h1>
+                    <p>The backend is running. This port serves the API, not the React website.</p>
+                    <ul>
+                        <li>API docs: <a href="/docs">/docs</a></li>
+                        <li>OpenAPI: <a href="/openapi.json">/openapi.json</a></li>
+                        <li>Frontend website: run <code>npm run dev</code> in the <code>frontend</code> folder and open the Vite URL, usually <code>http://localhost:5173</code></li>
+                    </ul>
+                </main>
+            </body>
+        </html>
+        """
+
 # Pydantic models for Auth
 class UserSignup(BaseModel):
     name: str
