@@ -20,21 +20,25 @@ const SettingsView = ({
         <h3 className="text-base font-bold text-white mb-6 flex items-center gap-2">
           <Icons.Database /> Connection Settings
         </h3>
+        <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+          The backend currently uses local Qdrant storage at <span className="font-mono text-slate-300">./qdrant_db</span> and the fixed collection name <span className="font-mono text-slate-300">code_search</span>.
+          These values are shown for visibility only.
+        </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div className="space-y-2">
             <label className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase">Qdrant URL</label>
             <input
-              className="w-full bg-[#0b0f1a] border border-slate-800 rounded-xl px-4 py-1.5 text-sm font-mono text-blue-400 focus:border-blue-500 transition-all outline-none"
+              className="w-full bg-[#0b0f1a] border border-slate-800 rounded-xl px-4 py-1.5 text-sm font-mono text-blue-400 opacity-70"
               value={qdrantUrl}
-              onChange={e => setQdrantUrl(e.target.value)}
+              readOnly
             />
           </div>
           <div className="space-y-2">
             <label className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase">Collection Name</label>
             <input
-              className="w-full bg-[#0b0f1a] border border-slate-800 rounded-xl px-4 py-1.5 text-sm font-mono text-slate-300 focus:border-blue-500 transition-all outline-none"
+              className="w-full bg-[#0b0f1a] border border-slate-800 rounded-xl px-4 py-1.5 text-sm font-mono text-slate-300 opacity-70"
               value={collectionName}
-              onChange={e => setCollectionName(e.target.value)}
+              readOnly
             />
           </div>
         </div>
