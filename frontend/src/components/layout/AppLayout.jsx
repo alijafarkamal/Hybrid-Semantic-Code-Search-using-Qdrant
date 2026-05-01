@@ -1,7 +1,7 @@
 import Sidebar from './Sidebar';
 import Header from './Header';
 
-const AppLayout = ({ activeView, setActiveView, sidebarCollapsed, setSidebarCollapsed, username, openProfileModal, logout, children }) => {
+const AppLayout = ({ activeView, setActiveView, sidebarCollapsed, setSidebarCollapsed, username, openProfileModal, logout, openFAQModal, children }) => {
   return (
     <div className="flex h-screen bg-[#0b0f1a] text-slate-200 font-sans overflow-hidden">
       <Sidebar
@@ -17,6 +17,7 @@ const AppLayout = ({ activeView, setActiveView, sidebarCollapsed, setSidebarColl
           username={username}
           openProfileModal={openProfileModal}
           logout={logout}
+          openFAQModal={openFAQModal}
         />
 
         <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto min-w-0">

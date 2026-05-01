@@ -14,6 +14,7 @@ import AppLayout from './components/layout/AppLayout';
 
 // Shared Components
 import ConfirmationModal from './components/ConfirmationModal';
+import FAQModal from './components/FAQModal';
 
 // Page Views
 import AuthPage from './pages/AuthPage';
@@ -27,6 +28,7 @@ import ProfileModal from './pages/ProfileModal';
 const App = () => {
   const [activeView, setActiveView] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isFAQModalOpen, setIsFAQModalOpen] = useState(false);
 
   // Hooks
   const { modalConfig, requestConfirm, requestAlert, handleClose, handleConfirm } = useConfirm();
@@ -75,6 +77,7 @@ const App = () => {
         username={username}
         openProfileModal={profile.openProfileModal}
         logout={logout}
+        openFAQModal={() => setIsFAQModalOpen(true)}
       >
         {activeView === 'search' && (
           <SearchView
@@ -160,6 +163,11 @@ const App = () => {
         setNewPassword={profile.setNewPassword}
         showPassword={profile.showPassword}
         setShowPassword={profile.setShowPassword}
+      />
+
+      <FAQModal 
+        isOpen={isFAQModalOpen} 
+        onClose={() => setIsFAQModalOpen(false)} 
       />
     </>
   );

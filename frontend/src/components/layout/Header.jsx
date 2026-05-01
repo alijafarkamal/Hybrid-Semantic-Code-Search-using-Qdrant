@@ -9,7 +9,7 @@ const viewTitles = {
   settings: 'Settings'
 };
 
-const Header = ({ activeView, username, openProfileModal, logout }) => {
+const Header = ({ activeView, username, openProfileModal, logout, openFAQModal }) => {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
 
@@ -34,6 +34,14 @@ const Header = ({ activeView, username, openProfileModal, logout }) => {
           <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_#10b981]"></span>
           <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Qdrant Connected</span>
         </div>
+
+        <button 
+          onClick={openFAQModal}
+          className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-full hover:bg-blue-500/20 transition-colors"
+        >
+          <span className="text-blue-400"><Icons.Help /></span>
+          <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">FAQ</span>
+        </button>
 
         <div className="flex items-center gap-3 pl-4 border-l border-slate-800/50 relative" ref={profileMenuRef}>
           <div className="flex flex-col items-end">
