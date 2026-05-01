@@ -95,10 +95,14 @@ class CodeSearcher:
         # Generate (and cache) embedding for the query.
         cached = self._embedding_cache.get(query)
         if cached is not None:
+            print(f"\n[Backend] Using cached embedding for query: '{query}'")
+            print(f"[Backend] Cached Embedding: {cached}")
             self._embedding_cache.move_to_end(query)
             query_embedding = cached
         else:
+            print(f"\n[Backend] Generating embedding for query: '{query}'")
             query_embedding = list(self.model.embed(query))[0].tolist()
+            print(f"[Backend] Generated Embedding: {query_embedding}")
             self._embedding_cache[query] = query_embedding
             self._embedding_cache.move_to_end(query)
             while len(self._embedding_cache) > self._embedding_cache_max:
