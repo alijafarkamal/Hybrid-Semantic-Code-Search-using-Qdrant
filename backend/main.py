@@ -1,8 +1,3 @@
-from pathlib import Path
-from fastembed import TextEmbedding
-from qdrant_client.models import VectorParams, Distance, PointStruct
-from ingest import CodeChunker
-
 from fastapi import FastAPI, HTTPException, Depends, status, Security, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -22,11 +17,17 @@ from auth import get_password_hash, verify_password, create_access_token, decode
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
 
+from pathlib import Path
+from fastembed import TextEmbedding
+from qdrant_client.models import VectorParams, Distance, PointStruct
+from ingest import CodeChunker
+
 # Import existing logic
 from search import CodeSearcher
 from reasoning import generate_change_plan
 from ingest import CodeIngester
 
+from collections import defaultdict
 
 # Load environment variables
 load_dotenv()
@@ -221,22 +222,39 @@ async def info(current_user: Any = Depends(get_current_user)):
         )
         
         points = response[0]
+
         repo_stats = {}
         languages = {}
         
+        # for p in points:
+        #     payload = p.payload
+        #     repo_name = payload.get('repo_name', 'Unknown')
+        #     lang = payload.get('language', 'Unknown')
+            
+        #     # Update repo stats
+        #     if repo_name not in repo_stats:
+        #         repo_stats[repo_name] = {"name": repo_name, "points": 0, "languages": set()}
+        #     repo_stats[repo_name]["points"] += 1
+        #     repo_stats[repo_name]["languages"].add(lang)
+            
+        #     # Update global language stats
+        #     languages[lang] = languages.get(lang, 0) + 1
+
+        # Initialize with default factories
+        repo_stats = defaultdict(lambda: {"points": 0, "languages": set()})
+        languages = defaultdict(int)
+
         for p in points:
             payload = p.payload
             repo_name = payload.get('repo_name', 'Unknown')
             lang = payload.get('language', 'Unknown')
-            
-            # Update repo stats
-            if repo_name not in repo_stats:
-                repo_stats[repo_name] = {"name": repo_name, "points": 0, "languages": set()}
+    
+             # Direct access, no 'if' checks required
+            repo_stats[repo_name]["name"] = repo_name
             repo_stats[repo_name]["points"] += 1
             repo_stats[repo_name]["languages"].add(lang)
-            
-            # Update global language stats
-            languages[lang] = languages.get(lang, 0) + 1
+    
+            languages[lang] += 1
         
         # Format repo list for frontend
         repos_list = []
