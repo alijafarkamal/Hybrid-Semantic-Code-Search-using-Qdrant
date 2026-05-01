@@ -1,3 +1,8 @@
+from pathlib import Path
+from fastembed import TextEmbedding
+from qdrant_client.models import VectorParams, Distance, PointStruct
+from ingest import CodeChunker
+
 from fastapi import FastAPI, HTTPException, Depends, status, Security, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -21,6 +26,7 @@ models.Base.metadata.create_all(bind=engine)
 from search import CodeSearcher
 from reasoning import generate_change_plan
 from ingest import CodeIngester
+
 
 # Load environment variables
 load_dotenv()
@@ -265,11 +271,6 @@ def run_ingestion(record_id: int, directory_path: str, repo_name: str, exclude_d
     record = db.query(models.IngestionRecord).filter(models.IngestionRecord.id == record_id).first()
     
     try:
-        from pathlib import Path
-        from fastembed import TextEmbedding
-        from qdrant_client.models import VectorParams, Distance, PointStruct
-        from ingest import CodeChunker
-
         # Reuse the shared Qdrant client — no second open needed
         client = searcher.client
         collection_name = searcher.collection_name

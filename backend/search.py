@@ -53,6 +53,8 @@ class CodeSearcher:
         # Simple in-memory cache for query embeddings within a process.
         self._embedding_cache: Dict[str, List[float]] = {}
 
+        self._token_pattern = re.compile(r"[A-Za-z0-9_]+")
+
     # ------------------------------------------------------------------
     # Retrieval + hybrid scoring
     # ------------------------------------------------------------------
@@ -233,21 +235,29 @@ class CodeSearcher:
     # Internal helpers
     # ------------------------------------------------------------------
 
+    # def _tokenize(self, text: str) -> List[str]:
+    #     """Tokenise code or natural language into lowercase terms.
+
+    #     This is intentionally simple and dependency-free: we split on
+    #     non-alphanumeric characters but keep underscores so that identifiers
+    #     like ``get_user_by_id`` remain a single token and match exact symbol
+    #     names and configuration keys.
+    #     """
+
+    #     return [
+    #         t.lower()
+    #         for t in re.findall(r"[A-Za-z0-9_]+", text)
+    #         if t
+    #     ]
+
+    # Update _tokenize:
     def _tokenize(self, text: str) -> List[str]:
-        """Tokenise code or natural language into lowercase terms.
-
-        This is intentionally simple and dependency-free: we split on
-        non-alphanumeric characters but keep underscores so that identifiers
-        like ``get_user_by_id`` remain a single token and match exact symbol
-        names and configuration keys.
-        """
-
         return [
             t.lower()
-            for t in re.findall(r"[A-Za-z0-9_]+", text)
+            for t in self._token_pattern.findall(text)
             if t
         ]
-
+    
     def _cosine_similarity(self, a: Dict[str, float], b: Dict[str, float]) -> float:
         """Compute cosine similarity between two sparse TF‑IDF vectors."""
 
