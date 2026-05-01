@@ -16,7 +16,7 @@ const ProfileModal = ({
       <div className="bg-[#0f172a] border border-slate-800 rounded-[32px] w-full max-w-[325px] overflow-hidden shadow-[0_32px_128px_rgba(0,0,0,0.8)] animate-in zoom-in-95 duration-300 relative">
         <button
           onClick={() => setIsProfileModalOpen(false)}
-          className="absolute right-5 top-5 text-slate-500 hover:text-rose-500 transition-all p-1.5 hover:bg-rose-500/10 rounded-xl"
+          className="absolute right-5 top-5 text-rose-500 hover:text-rose-400 transition-all p-1.5 hover:bg-rose-500/10 rounded-xl"
         >
           <Icons.Close />
         </button>

@@ -56,7 +56,7 @@ const IngestionView = ({
               {ingestExcludes.map(tag => (
                 <span key={tag} className="flex items-center gap-1.5 bg-slate-800/50 text-slate-300 px-3 py-1 rounded-full text-[11px] font-bold border border-slate-700/50">
                   {tag}
-                  <button type="button" onClick={() => removeExclude(tag)} className="text-slate-500 hover:text-rose-400 transition-colors">
+                  <button type="button" onClick={() => removeExclude(tag)} className="text-rose-500 hover:text-rose-400 transition-colors">
                     <Icons.Close size={14} />
                   </button>
                 </span>

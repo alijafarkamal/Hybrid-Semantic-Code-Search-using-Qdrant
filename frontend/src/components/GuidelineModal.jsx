@@ -25,7 +25,7 @@ const GuidelineModal = ({ isOpen, onClose }) => {
           </div>
           <button 
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white hover:bg-rose-500/20 hover:text-rose-400 rounded-lg transition-colors"
+            className="p-2 text-rose-500 hover:text-rose-400 hover:bg-rose-500/20 rounded-lg transition-colors"
           >
             <Icons.Close />
           </button>
