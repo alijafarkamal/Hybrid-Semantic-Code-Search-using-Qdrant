@@ -445,9 +445,16 @@ class CodeIngester:
             repo_name = directory.name
         
         # Find all code files
-        code_files = []
-        for ext in self.language_map.keys():
-            code_files.extend(directory.rglob(f"*{ext}"))
+        # code_files = []
+        # for ext in self.language_map.keys():
+        #     code_files.extend(directory.rglob(f"*{ext}"))
+
+        valid_exts = set(self.language_map.keys()) # Convert to set for O(1) lookups
+        # Traverse the tree exactly once, filtering by file extension
+        code_files = [
+        f for f in directory.rglob("*") 
+        if f.is_file() and f.suffix.lower() in valid_exts
+        ]
         
         # Filter out excluded directories
         code_files = [
