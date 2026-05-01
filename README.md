@@ -81,6 +81,8 @@ lablab-qdrant/
 │   ├── search.py            # CodeSearcher class: hybrid semantic+lexical search
 │   ├── ingest.py            # CodeChunker + CodeIngester: AST/regex parsing, embedding
 │   ├── reasoning.py         # Gemini change planning: dataclasses + API calls
+│   ├── scripts/
+│   │   └── benchmark_latency.py  # CLI: search/plan latency (p50, mean)
 │   ├── reset_db.py          # Utility: clear SQLite + Qdrant data
 │   ├── requirements.txt     # Python dependencies
 │   ├── users.db             # SQLite database file
@@ -667,7 +669,16 @@ graph LR
 
 | Method | Endpoint | Body | Response | Auth |
 |--------|----------|------|----------|------|
-| POST | `/search` | `{query, limit?, language?, repo?, chunk_types?, min_score?, sort_by?, semantic_weight?, overfetch_multiplier?, mode?}` | `{results: [...]}` or `{results: [...], plan: {...}}` | Bearer |
+| POST | `/search` | `{query, limit?, language?, repo?, chunk_types?, min_score?, sort_by?, semantic_weight?, overfetch_multiplier?, mode?}` | `{results: [...]}`, or plan mode `{results, plan, timings}` | Bearer |
+| POST | `/search/stream` | Same JSON body as `/search` | SSE (`text/event-stream`): `started`, `retrieval_done`, `plan_delta`, `plan_done`, `complete`, `error` | Bearer |
+
+**Plan mode latency:** default Gemini model is `gemini-2.5-flash-lite`. Override with `GEMINI_MODEL`; optional `GEMINI_FALLBACK_MODEL`. Tune HTTP timeout with `GEMINI_HTTP_TIMEOUT` (seconds), retries with `GEMINI_RETRY_ATTEMPTS`, and prompt size with `GEMINI_CONTEXT_MAX_CHARS`, `GEMINI_CONTEXT_MAX_RESULTS`, `GEMINI_CONTEXT_SNIPPET_CHARS`.
+
+Local benchmark (requires `GEMINI_API_KEY` for `--plan`):
+
+```bash
+cd backend && python scripts/benchmark_latency.py --iterations 5 --plan --query "your query"
+```
 
 ### Collection Info
 

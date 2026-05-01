@@ -1,8 +1,14 @@
+import json
+import logging
+import time
+
 from fastapi import FastAPI, HTTPException, Depends, status, Security, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr, ConfigDict
-from typing import List, Optional, Any
+from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
+from typing import Any, Dict, List, Optional
 from datetime import datetime
 import os
 import uuid
@@ -18,19 +24,19 @@ from auth import get_password_hash, verify_password, create_access_token, decode
 models.Base.metadata.create_all(bind=engine)
 
 from pathlib import Path
-from fastembed import TextEmbedding
 from qdrant_client.models import VectorParams, Distance, PointStruct
 from ingest import CodeChunker
 
 # Import existing logic
 from search import CodeSearcher
-from reasoning import generate_change_plan
-from ingest import CodeIngester
+from reasoning import build_plan_prompt, generate_change_plan, iterate_plan_stream_events
 
 from collections import defaultdict
 
 # Load environment variables
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Semantic Code Search API")
 
@@ -184,28 +190,176 @@ async def login(user: UserLogin, db: Session = Depends(get_db)):
     access_token = create_access_token(data={"sub": str(db_user.id), "name": db_user.name})
     return {"access_token": access_token, "token_type": "bearer", "user_name": db_user.name}
 
+def _sse_data(obj: Dict[str, Any]) -> str:
+    return f"data: {json.dumps(obj, ensure_ascii=False, default=str)}\n\n"
+
+
 @app.post("/search")
 async def search(request: SearchRequest, current_user: Any = Depends(get_current_user)):
     try:
-        results = searcher.search(
-            query=request.query,
-            limit=request.limit,
-            language_filter=request.language,
-            repo_filter=request.repo,
-            chunk_types_filter=request.chunk_types,
-            min_score=request.min_score,
-            sort_by=request.sort_by,
-            semantic_weight=request.semantic_weight,
-            overfetch_multiplier=request.overfetch_multiplier
+        results = await run_in_threadpool(
+            searcher.search,
+            request.query,
+            request.limit,
+            request.language,
+            request.repo,
+            request.chunk_types,
+            request.min_score,
+            request.sort_by,
+            request.semantic_weight,
+            request.overfetch_multiplier,
         )
-        
+
         if request.mode == "plan":
-            plan = generate_change_plan(request.query, results)
-            return {"results": results, "plan": plan}
-            
+            timings: Dict[str, Any] = {}
+            plan = await run_in_threadpool(
+                generate_change_plan, request.query, results, timings
+            )
+            logger.info(
+                "plan_mode timings query_len=%d results=%d %s",
+                len(request.query or ""),
+                len(results),
+                timings,
+            )
+            return {"results": results, "plan": plan, "timings": timings}
+
         return {"results": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/search/stream")
+async def search_stream(
+    request: SearchRequest,
+    current_user: Any = Depends(get_current_user),
+):
+    """Server-Sent Events: phased search + streamed plan deltas (mode=plan)."""
+
+    async def event_gen():  # type: ignore[misc]
+        wall = time.perf_counter()
+        timings: Dict[str, Any] = {}
+
+        yield _sse_data({"event": "started"})
+        try:
+            t_search = time.perf_counter()
+            results = await run_in_threadpool(
+                searcher.search,
+                request.query,
+                request.limit,
+                request.language,
+                request.repo,
+                request.chunk_types,
+                request.min_score,
+                request.sort_by,
+                request.semantic_weight,
+                request.overfetch_multiplier,
+            )
+            timings["search_ms"] = round((time.perf_counter() - t_search) * 1000.0, 2)
+            yield _sse_data(
+                {
+                    "event": "retrieval_done",
+                    "results": results,
+                    "timings": dict(timings),
+                }
+            )
+
+            if request.mode != "plan":
+                timings["total_ms"] = round(
+                    (time.perf_counter() - wall) * 1000.0, 2
+                )
+                yield _sse_data(
+                    {
+                        "event": "complete",
+                        "results": results,
+                        "plan": None,
+                        "timings": timings,
+                    }
+                )
+                return
+
+            t_prompt = time.perf_counter()
+            prompt, allowed_files = build_plan_prompt(request.query, results)
+            timings["prompt_build_ms"] = round(
+                (time.perf_counter() - t_prompt) * 1000.0, 2
+            )
+            timings["prompt_chars"] = len(prompt)
+            yield _sse_data({"event": "plan_started", "timings": dict(timings)})
+
+            final_plan: Optional[Dict[str, Any]] = None
+            stream_iter = iterate_plan_stream_events(
+                prompt, request.query, allowed_files
+            )
+            async for ev in iterate_in_threadpool(stream_iter):
+                ev_type = ev.get("event")
+                if ev_type == "plan_delta":
+                    yield _sse_data(ev)
+                elif ev_type == "plan_done":
+                    final_plan = ev.get("plan")
+                    inner_t = ev.get("timings") or {}
+                    timings.update(inner_t)
+                    yield _sse_data(
+                        {
+                            "event": "plan_done",
+                            "plan": final_plan,
+                            "timings": dict(timings),
+                        }
+                    )
+                elif ev_type == "error":
+                    yield _sse_data(
+                        {
+                            "event": "error",
+                            "detail": ev.get("detail"),
+                            "retryable": ev.get("retryable", False),
+                        }
+                    )
+                    timings["total_ms"] = round(
+                        (time.perf_counter() - wall) * 1000.0, 2
+                    )
+                    yield _sse_data(
+                        {
+                            "event": "complete",
+                            "results": results,
+                            "plan": None,
+                            "timings": timings,
+                        }
+                    )
+                    return
+
+            timings["total_ms"] = round((time.perf_counter() - wall) * 1000.0, 2)
+            logger.info(
+                "search_stream plan done query_len=%d results=%d %s",
+                len(request.query or ""),
+                len(results),
+                timings,
+            )
+            yield _sse_data(
+                {
+                    "event": "complete",
+                    "results": results,
+                    "plan": final_plan,
+                    "timings": timings,
+                }
+            )
+        except Exception as e:
+            yield _sse_data({"event": "error", "detail": str(e)})
+            yield _sse_data(
+                {
+                    "event": "complete",
+                    "results": [],
+                    "plan": None,
+                    "timings": {"error": str(e)},
+                }
+            )
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 @app.get("/info")
 async def info(current_user: Any = Depends(get_current_user)):
@@ -302,8 +456,8 @@ def run_ingestion(record_id: int, directory_path: str, repo_name: str, exclude_d
                 vectors_config=VectorParams(size=384, distance=Distance.COSINE),
             )
 
-        # Load embedding model (same one as search.py)
-        embed_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
+        # Reuse FastEmbed instance from hybrid search — avoids reloading ONNX weights.
+        embed_model = searcher.model
         chunker = CodeChunker()
 
         language_map = {
@@ -340,8 +494,20 @@ def run_ingestion(record_id: int, directory_path: str, repo_name: str, exclude_d
                 language = language_map.get(file_path.suffix.lower(), 'unknown')
                 chunks = chunker.chunk_file(str(file_path), content, language)
 
-                for chunk in chunks:
-                    embedding = list(embed_model.embed(chunk['text']))[0].tolist()
+                def _embedding_to_list(emb_obj: Any) -> List[float]:
+                    if hasattr(emb_obj, "tolist"):
+                        return emb_obj.tolist()
+                    return list(emb_obj)
+
+                if chunks:
+                    texts = [c["text"] for c in chunks]
+                    vectors = list(embed_model.embed(texts))
+                    paired = zip(chunks, vectors)
+                else:
+                    paired = []
+
+                for chunk, emb in paired:
+                    embedding = _embedding_to_list(emb)
                     payload = {
                         'file_path': str(file_path.relative_to(directory)),
                         'code_snippet': chunk['text'],

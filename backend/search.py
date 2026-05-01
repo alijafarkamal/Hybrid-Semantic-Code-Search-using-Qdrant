@@ -13,12 +13,18 @@ prints a human-readable view.
 
 import math
 import re
-from collections import Counter, defaultdict
+from collections import Counter, OrderedDict, defaultdict
 from typing import Any, Dict, List, Optional
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import FieldCondition, Filter, MatchValue
 from fastembed import TextEmbedding
+
+import os
+
+MAX_OVERFETCH_CAP = 200
+LEXICAL_SNIPPET_MAX_CHARS = 6000
+EMBEDDING_CACHE_MAX = int(os.getenv("EMBEDDING_CACHE_MAX", "256"))
 
 
 class CodeSearcher:
@@ -50,8 +56,9 @@ class CodeSearcher:
         self.semantic_weight = 0.7
         self.lexical_weight = 0.3
 
-        # Simple in-memory cache for query embeddings within a process.
-        self._embedding_cache: Dict[str, List[float]] = {}
+        # LRU-ish cache for query embeddings (bounded memory).
+        self._embedding_cache: OrderedDict[str, List[float]] = OrderedDict()
+        self._embedding_cache_max = EMBEDDING_CACHE_MAX
 
         self._token_pattern = re.compile(r"[A-Za-z0-9_]+")
 
@@ -86,11 +93,16 @@ class CodeSearcher:
             raise
 
         # Generate (and cache) embedding for the query.
-        if query in self._embedding_cache:
-            query_embedding = self._embedding_cache[query]
+        cached = self._embedding_cache.get(query)
+        if cached is not None:
+            self._embedding_cache.move_to_end(query)
+            query_embedding = cached
         else:
             query_embedding = list(self.model.embed(query))[0].tolist()
             self._embedding_cache[query] = query_embedding
+            self._embedding_cache.move_to_end(query)
+            while len(self._embedding_cache) > self._embedding_cache_max:
+                self._embedding_cache.popitem(last=False)
 
         # Build Qdrant filter if needed.
         query_filter: Optional[Filter] = None
@@ -116,7 +128,10 @@ class CodeSearcher:
             query_filter = Filter(must=must_conditions)
 
         # Over-fetch candidates so lexical re-ranking has room to reshuffle.
-        initial_limit = max(limit * overfetch_multiplier, 50)
+        initial_limit = min(
+            max(limit * overfetch_multiplier, 50),
+            MAX_OVERFETCH_CAP,
+        )
         results = self.client.query_points(
             collection_name=self.collection_name,
             query=query_embedding,
@@ -136,6 +151,8 @@ class CodeSearcher:
         df: Dict[str, int] = defaultdict(int)
         for point in results.points:
             text = (point.payload or {}).get("code_snippet", "")
+            if len(text) > LEXICAL_SNIPPET_MAX_CHARS:
+                text = text[:LEXICAL_SNIPPET_MAX_CHARS]
             tokens = self._tokenize(text)
             tf = Counter(tokens)
             doc_tfs.append(tf)

@@ -47,7 +47,7 @@ const ChangeTypeBadge = ({ type }) => {
 };
 
 // ── AI Change Plan Panel ──────────────────────────────────────────────────
-const PlanPanel = ({ plan, loading }) => {
+const PlanPanel = ({ plan, loading, streamPreview = '' }) => {
   const [openSection, setOpenSection] = useState(null);
 
   if (loading) {
@@ -71,6 +71,12 @@ const PlanPanel = ({ plan, loading }) => {
                 <span key={i} className="w-2 h-2 bg-violet-500 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }}></span>
               ))}
             </div>
+            {streamPreview && (
+              <div className="w-full max-h-40 overflow-auto mt-2 rounded-xl border border-violet-500/20 bg-black/30 p-3 text-left">
+                <p className="text-[10px] font-bold text-violet-400 uppercase tracking-wider mb-2">Live output</p>
+                <pre className="text-[11px] text-slate-300 whitespace-pre-wrap font-mono leading-relaxed">{streamPreview}</pre>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -260,7 +266,7 @@ const SearchView = ({
   query, setQuery, handleSearch,
   searchHistory,
   searchMode, setSearchMode,
-  plan, planLoading,
+  plan, planLoading, planStreamPreview,
   showFilters, setShowFilters,
   language, setLanguage,
   repo, setRepo,
@@ -458,7 +464,7 @@ const SearchView = ({
 
         {/* ── Plan Mode Output ─────────────────────────────────────── */}
         {searchMode === 'plan' && (planLoading || plan) && (
-          <PlanPanel plan={plan} loading={planLoading} />
+          <PlanPanel plan={plan} loading={planLoading} streamPreview={planStreamPreview} />
         )}
 
         {/* ── Search Mode Output ───────────────────────────────────── */}

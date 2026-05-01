@@ -84,7 +84,7 @@ const App = () => {
             query={search.query} setQuery={search.setQuery} handleSearch={search.handleSearch}
             searchHistory={search.searchHistory}
             searchMode={search.searchMode} setSearchMode={search.setSearchMode}
-            plan={search.plan} planLoading={search.planLoading}
+            plan={search.plan} planLoading={search.planLoading} planStreamPreview={search.planStreamPreview}
             showFilters={search.showFilters} setShowFilters={search.setShowFilters}
             language={search.language} setLanguage={search.setLanguage}
             repo={search.repo} setRepo={search.setRepo}
