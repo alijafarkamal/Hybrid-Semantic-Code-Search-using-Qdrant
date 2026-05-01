@@ -1,7 +1,7 @@
 """Gemini-based reasoning and change planning.
 
-Optimized for latency: reused genai.Client, Gemini 2.5 Flash-Lite default,
-timeouts, retries, smaller prompts, and optional streaming deltas.
+Uses the Gemini Developer API over plain HTTPS (httpx), not google-genai.
+This avoids SDK transport issues observed with httplib/python SSL on some hosts.
 """
 
 from __future__ import annotations
@@ -10,16 +10,14 @@ import json
 import logging
 import os
 import re
+import ast
 import threading
 import time
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
 
-from dotenv import load_dotenv
-from google import genai
-from google.genai import types
 import httpx
-
+from dotenv import load_dotenv
 from tenacity import (
     retry,
     retry_if_exception,
@@ -31,12 +29,14 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# Primary: fast Lite model. Override with GEMINI_MODEL.
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
-FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-2.5-flash")
-# Seconds for Gemini HTTP requests (Gemini generates JSON plans; give headroom).
+# Primary model. Override with GEMINI_MODEL env var.
+DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-2.0-flash")
+GEMINI_API_BASE = os.getenv(
+    "GEMINI_API_BASE", "https://generativelanguage.googleapis.com"
+).rstrip("/")
+# Seconds for Gemini HTTP requests.
 HTTP_TIMEOUT_S = float(os.getenv("GEMINI_HTTP_TIMEOUT", "120"))
-# Gemini API retries (transient network / availability).
 GEMINI_RETRY_ATTEMPTS = int(os.getenv("GEMINI_RETRY_ATTEMPTS", "3"))
 
 _RETRY_EXCEPTION_TYPES = (
@@ -50,8 +50,6 @@ _RETRY_EXCEPTION_TYPES = (
 
 
 def _retry_gemini(exc: BaseException) -> bool:
-    """Avoid retrying deterministic client errors."""
-
     if _RETRY_EXCEPTION_TYPES and isinstance(exc, _RETRY_EXCEPTION_TYPES):
         return True
     if isinstance(exc, (TimeoutError, ConnectionError, OSError)):
@@ -71,13 +69,135 @@ def _retry_gemini(exc: BaseException) -> bool:
         )
     )
 
-# Smaller context = fewer input tokens → faster TTFT and lower cost.
+
 CONTEXT_MAX_CHARS = int(os.getenv("GEMINI_CONTEXT_MAX_CHARS", "5600"))
 CONTEXT_MAX_RESULTS = int(os.getenv("GEMINI_CONTEXT_MAX_RESULTS", "12"))
 CONTEXT_SNIPPET_MAX_CHARS = int(os.getenv("GEMINI_CONTEXT_SNIPPET_CHARS", "800"))
 
-_client: Optional[genai.Client] = None
+_httpx_client: Optional[httpx.Client] = None
 _client_lock = threading.Lock()
+
+
+def _require_api_key() -> str:
+    key = os.getenv("GEMINI_API_KEY")
+    if not key:
+        raise RuntimeError(
+            "GEMINI_API_KEY environment variable is not set. "
+            "Please add it to your .env or shell environment."
+        )
+    return key
+
+
+def _get_httpx_client() -> httpx.Client:
+    """Singleton httpx client (connection pooling)."""
+
+    global _httpx_client
+    if _httpx_client is not None:
+        return _httpx_client
+    with _client_lock:
+        if _httpx_client is None:
+            timeout = httpx.Timeout(
+                HTTP_TIMEOUT_S,
+                connect=min(60.0, HTTP_TIMEOUT_S),
+            )
+            _httpx_client = httpx.Client(
+                timeout=timeout,
+                headers={"Content-Type": "application/json"},
+            )
+    return _httpx_client
+
+
+def _extract_text_from_response(data: Dict[str, Any]) -> str:
+    """Flatten candidates[].content.parts[].text from a Gemini JSON object."""
+
+    out: List[str] = []
+    for cand in data.get("candidates") or []:
+        content = cand.get("content") or {}
+        for part in content.get("parts") or []:
+            if isinstance(part, dict) and part.get("text"):
+                out.append(str(part["text"]))
+    return "".join(out)
+
+
+def _generate_content_payload(prompt: str, json_mode: bool = False) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {"contents": [{"parts": [{"text": prompt}]}]}
+    if json_mode:
+        payload["generationConfig"] = {"responseMimeType": "application/json"}
+    return payload
+
+
+@retry(
+    stop=stop_after_attempt(GEMINI_RETRY_ATTEMPTS),
+    wait=wait_exponential(multiplier=1, min=1, max=12),
+    retry=retry_if_exception(_retry_gemini),
+    reraise=True,
+)
+def _generate_content_blocking_rest(model: str, prompt: str) -> str:
+    """Blocking generateContent REST call."""
+
+    api_key = _require_api_key()
+    url = f"{GEMINI_API_BASE}/v1beta/models/{model}:generateContent"
+    client = _get_httpx_client()
+    r = client.post(
+        url,
+        params={"key": api_key},
+        json=_generate_content_payload(prompt, json_mode=True),
+    )
+    if r.status_code >= 400:
+        raise RuntimeError(f"Gemini HTTP {r.status_code}: {r.text[:800]}")
+    data = r.json()
+    text = _extract_text_from_response(data)
+    return text.strip() if text else ""
+
+
+def stream_generate_content_rest(
+    model: str, prompt: str
+) -> Iterator[str]:
+    """Stream text deltas via streamGenerateContent (SSE alt=sse)."""
+
+    api_key = _require_api_key()
+    url = f"{GEMINI_API_BASE}/v1beta/models/{model}:streamGenerateContent"
+    client = _get_httpx_client()
+
+    with client.stream(
+        "POST",
+        url,
+        params={"key": api_key, "alt": "sse"},
+        json=_generate_content_payload(prompt, json_mode=True),
+        headers={"Accept": "text/event-stream"},
+    ) as response:
+        if response.status_code >= 400:
+            body = response.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"Gemini stream HTTP {response.status_code}: {body[:800]}")
+
+        buf = ""
+
+        def _yield_from_sse_line(line_stripped: str) -> Iterator[str]:
+            if not line_stripped.startswith("data:"):
+                return
+            payload = line_stripped[5:].strip()
+            if not payload:
+                return
+            try:
+                obj = json.loads(payload)
+            except json.JSONDecodeError:
+                return
+            piece = _extract_text_from_response(obj)
+            # Yield each delta directly — Gemini streaming returns deltas, not cumulative text
+            if piece:
+                yield piece
+
+        for chunk in response.iter_bytes():
+            if not chunk:
+                continue
+            buf += chunk.decode("utf-8", errors="replace")
+            lines = buf.split("\n")
+            buf = lines.pop() if lines else ""
+            for line in lines:
+                yield from _yield_from_sse_line(line.strip())
+
+        if buf.strip():
+            yield from _yield_from_sse_line(buf.strip())
 
 
 @dataclass
@@ -119,30 +239,6 @@ class ChangePlan:
         }
 
 
-def _get_gemini_http_config() -> types.GenerateContentConfig:
-    return types.GenerateContentConfig(
-        http_options=types.HttpOptions(timeout=HTTP_TIMEOUT_S),
-    )
-
-
-def _get_client() -> genai.Client:
-    """Lazy singleton genai.Client (connection reuse per process)."""
-
-    global _client
-    if _client is not None:
-        return _client
-    with _client_lock:
-        if _client is None:
-            api_key = os.getenv("GEMINI_API_KEY")
-            if not api_key:
-                raise RuntimeError(
-                    "GEMINI_API_KEY environment variable is not set. "
-                    "Please add it to your .env or shell environment."
-                )
-            _client = genai.Client(api_key=api_key)
-    return _client
-
-
 def _models_to_try() -> List[str]:
     primary = DEFAULT_MODEL.strip()
     fb = (FALLBACK_MODEL or "").strip()
@@ -168,8 +264,6 @@ def _build_context(
     max_results: int = CONTEXT_MAX_RESULTS,
     snippet_chars: int = CONTEXT_SNIPPET_MAX_CHARS,
 ) -> str:
-    """Compact textual context for Gemini (bounded tokens)."""
-
     lines: List[str] = []
     used_chars = 0
 
@@ -216,8 +310,6 @@ def build_plan_prompt(
     query: str,
     results: List[Dict[str, Any]],
 ) -> Tuple[str, Set[str]]:
-    """Build Gemini prompt plus allowed file paths from retrieval."""
-
     allowed_files = _build_allowed_files(results)
     context = _build_context(results)
 
@@ -274,18 +366,74 @@ def _strip_code_fences(text: str) -> str:
     return text.strip()
 
 
+def _extract_first_json_object(text: str) -> Optional[str]:
+    """Extract the first balanced JSON object from arbitrary text."""
+
+    start = text.find("{")
+    if start < 0:
+        return None
+
+    depth = 0
+    in_str = False
+    esc = False
+    for idx in range(start, len(text)):
+        ch = text[idx]
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+
+        if ch == '"':
+            in_str = True
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : idx + 1]
+    return None
+
+
+def _parse_plan_json_like(text: str) -> Optional[Dict[str, Any]]:
+    """Best-effort parse for Gemini output that may include wrapper text."""
+
+    candidate = _strip_code_fences(text)
+    snippets = [candidate]
+    extracted = _extract_first_json_object(candidate)
+    if extracted and extracted not in snippets:
+        snippets.append(extracted)
+
+    for snippet in snippets:
+        try:
+            data = json.loads(snippet)
+            if isinstance(data, dict):
+                return data
+        except json.JSONDecodeError:
+            pass
+
+        # Some models emit Python-like dicts (single quotes, True/False/None).
+        try:
+            obj = ast.literal_eval(snippet)
+            if isinstance(obj, dict):
+                return obj
+        except (ValueError, SyntaxError):
+            pass
+
+    return None
+
+
 def finalize_plan_dict(
     raw_text: str,
     query: str,
     allowed_files: Set[str],
 ) -> Dict[str, Any]:
-    """Parse Gemini output JSON and constrain file paths."""
-
     cleaned = _strip_code_fences(raw_text)
-
-    try:
-        data = json.loads(cleaned)
-    except json.JSONDecodeError:
+    data = _parse_plan_json_like(raw_text)
+    if data is None:
         plan = ChangePlan(
             goal=query,
             files_to_modify=[],
@@ -332,40 +480,17 @@ def empty_plan_failure(query: str, message: str) -> Dict[str, Any]:
     return plan.to_dict()
 
 
-@retry(
-    stop=stop_after_attempt(GEMINI_RETRY_ATTEMPTS),
-    wait=wait_exponential(multiplier=1, min=1, max=12),
-    retry=retry_if_exception(_retry_gemini),
-    reraise=True,
-)
-def _generate_content_blocking(
-    client: genai.Client,
-    model: str,
-    prompt: str,
-) -> Any:
-    return client.models.generate_content(
-        model=model,
-        contents=prompt,
-        config=_get_gemini_http_config(),
-    )
-
-
 def _call_gemini_text_sync(prompt: str) -> Tuple[str, str]:
-    """Return (concatenated model text, model_name_used)."""
-
-    client = _get_client()
     last_err: Optional[BaseException] = None
 
     for model_name in _models_to_try():
         try:
-            response = _generate_content_blocking(client, model_name, prompt)
-            raw_text = getattr(response, "text", None)
-            if not raw_text:
-                raw_text = str(response)
-            return raw_text, model_name
-        except Exception as exc:  # noqa: BLE001 — try fallback models
+            raw_text = _generate_content_blocking_rest(model_name, prompt)
+            if raw_text:
+                return raw_text, model_name
+        except Exception as exc:  # noqa: BLE001
             last_err = exc
-            logger.warning("Gemini generate_content failed for %s: %s", model_name, exc)
+            logger.warning("Gemini REST generate_content failed for %s: %s", model_name, exc)
 
     raise last_err  # type: ignore[misc]
 
@@ -375,8 +500,6 @@ def generate_change_plan(
     results: List[Dict[str, Any]],
     timings: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Blocking plan generation with optional timing fills."""
-
     sink = timings if timings is not None else {}
 
     if not results:
@@ -418,29 +541,20 @@ def generate_change_plan(
 
 
 def stream_gemini_plan_deltas(prompt: str) -> Iterator[str]:
-    """Yield incremental text deltas from Gemini (streaming generation)."""
-
-    client = _get_client()
     last_err: Optional[BaseException] = None
 
     for model_name in _models_to_try():
-        accumulated = ""
         try:
-            stream = client.models.generate_content_stream(
-                model=model_name,
-                contents=prompt,
-                config=_get_gemini_http_config(),
-            )
-            for resp in stream:
-                full = getattr(resp, "text", None) or ""
-                if len(full) > len(accumulated):
-                    yield full[len(accumulated) :]
-                    accumulated = full
+            for delta in stream_generate_content_rest(model_name, prompt):
+                if delta:
+                    yield delta
             return
         except Exception as exc:
             last_err = exc
             logger.warning(
-                "Gemini generate_content_stream failed for %s: %s", model_name, exc
+                "Gemini REST streamGenerateContent failed for %s: %s",
+                model_name,
+                exc,
             )
 
     if last_err:
@@ -453,8 +567,6 @@ def iterate_plan_stream_events(
     query: str,
     allowed_files: Set[str],
 ) -> Iterator[Dict[str, Any]]:
-    """Sync iterator: plan_delta chunks, then plan_done with parsed plan or error."""
-
     acc = ""
     try:
         for delta in stream_gemini_plan_deltas(prompt):
@@ -466,6 +578,19 @@ def iterate_plan_stream_events(
 
     parse_t0 = time.perf_counter()
     plan_dict = finalize_plan_dict(acc, query, allowed_files)
+
+    # If streaming produced garbled text, fall back to blocking call
+    if plan_dict.get("raw_response") is not None:
+        logger.warning(
+            "Streaming produced unparseable JSON (%d chars). Falling back to blocking call.",
+            len(acc),
+        )
+        try:
+            raw_text, _ = _call_gemini_text_sync(prompt)
+            plan_dict = finalize_plan_dict(raw_text, query, allowed_files)
+        except Exception as fallback_err:
+            logger.error("Blocking fallback also failed: %s", fallback_err)
+
     parse_ms = round((time.perf_counter() - parse_t0) * 1000.0, 2)
     yield {
         "event": "plan_done",
@@ -478,22 +603,18 @@ def iterate_plan_stream_events(
 
 
 def _connectivity_check() -> str:
-    client = _get_client()
     try:
-        resp = client.models.generate_content(
-            model=DEFAULT_MODEL,
-            contents="Say 'ok' if you received this.",
-            config=_get_gemini_http_config(),
+        text = _generate_content_blocking_rest(
+            DEFAULT_MODEL, "Say 'ok' if you received this."
         )
-    except Exception as e:  # pragma: no cover
+    except Exception as e:
         return f"Gemini connectivity test failed: {e}"
 
-    text = getattr(resp, "text", None) or str(resp)
     if len(text) > 200:
         text = text[:197] + "..."
     return f"Gemini connectivity test succeeded. Model replied: {text}"
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     print(_connectivity_check())

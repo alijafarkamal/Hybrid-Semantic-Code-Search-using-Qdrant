@@ -1,0 +1,2 @@
+# Dev / CI only
+pytest>=8.0
